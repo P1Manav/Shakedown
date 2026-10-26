@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 
 import httpx
 import pytest
@@ -7,7 +8,7 @@ import pytest
 from shakedown.cost import BudgetTracker, Pricing
 from shakedown.perturb.ablation import AblationPerturbation
 from shakedown.perturb.chaos import ChaosPerturbation
-from shakedown.perturb.base import Baseline, RunState
+from shakedown.perturb.base import RunState
 from shakedown.proxy import ProxyServer, RunContext
 from shakedown.store import RunResult, Store
 
@@ -162,6 +163,50 @@ def test_tool_fault_target_never_called_is_not_exposed(tmp_path):
     assert any(
         event["event"] == "perturbation" and event["reason"] == "target tool was never called"
         for event in trace
+    )
+
+
+def test_added_latency_fault_delays_target_result_and_records_exposure(tmp_path):
+    store = Store("latency-exposure", tmp_path)
+    perturbation = ChaosPerturbation(
+        "added_latency", "read_file", {"delay_ms": 40}
+    )
+    payload = {
+        "messages": [
+            {"role": "assistant", "tool_calls": [{
+                "id": "call-latency",
+                "function": {"name": "read_file", "arguments": '{"path":"a.py"}'},
+            }]},
+            {"role": "tool", "tool_call_id": "call-latency", "content": "file contents"},
+        ]
+    }
+
+    started = time.perf_counter()
+    response, context, trace = _post(store, perturbation, payload)
+    elapsed = time.perf_counter() - started
+
+    assert response.status_code == 200
+    assert elapsed >= 0.03
+    assert context.state.perturbation_applied is True
+    event = next(item for item in trace if item["event"] == "perturbation")
+    assert event["applied"] is True
+    assert event["delay_ms"] == 40
+
+
+def test_added_latency_fault_is_not_exposed_when_target_tool_is_absent(tmp_path):
+    store = Store("latency-not-exposed", tmp_path)
+    perturbation = ChaosPerturbation(
+        "added_latency", "read_file", {"delay_ms": 40}
+    )
+
+    response, context, _ = _post(
+        store, perturbation, {"messages": [{"role": "user", "content": "hello"}]}
+    )
+
+    assert response.status_code == 200
+    assert context.state.perturbation_applied is False
+    assert context.state.perturbation_records[-1]["reason"] == (
+        "target tool was never called"
     )
 
 

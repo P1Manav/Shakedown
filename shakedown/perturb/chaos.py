@@ -18,6 +18,9 @@ class ChaosPerturbation(Perturbation):
         self.fault = fault
         self.tool = tool
         self.keep_chars = int(params.get("keep_chars", 200))
+        self.delay_ms = int(params.get("delay_ms", 1000))
+        if fault == "added_latency" and self.delay_ms <= 0:
+            raise ValueError("added_latency delay_ms must be greater than zero")
 
     def apply_tool_result(self, tool_name: str, args: dict, content: str, ctx) -> str:
         if tool_name != self.tool:

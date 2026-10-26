@@ -300,6 +300,7 @@ class ProxyServer:
         if ctx.fix_line:
             forwarded = _inject_fix(forwarded, ctx.fix_line)
         try:
+            await self._apply_latency_faults(forwarded, ctx)
             forwarded = self._apply_tool_faults(forwarded, ctx)
         except Exception as exc:  # noqa: BLE001 - perturbation failures invalidate the run
             ctx.state.errors.append(f"tool-result perturbation failed: {exc}")
@@ -573,6 +574,9 @@ class ProxyServer:
         )
 
     def _apply_tool_faults(self, payload: dict, ctx: RunContext) -> dict:
+        if (ctx.perturbation.kind == "chaos"
+                and getattr(ctx.perturbation, "fault", None) == "added_latency"):
+            return payload
         messages = payload.get("messages") or []
         index = _tool_call_index(messages)
         changed = False
@@ -632,6 +636,46 @@ class ProxyServer:
                 "ts": utc_now(), "event": "tool_fault_applied",
                 "perturbation": ctx.perturbation.id})
         return payload
+
+    async def _apply_latency_faults(self, payload: dict, ctx: RunContext) -> None:
+        if (ctx.perturbation.kind != "chaos"
+                or getattr(ctx.perturbation, "fault", None) != "added_latency"):
+            return
+        messages = payload.get("messages") or []
+        index = _tool_call_index(messages)
+        target_seen = False
+        for message in messages:
+            if message.get("role") != "tool":
+                continue
+            call_id = str(message.get("tool_call_id", ""))
+            name, _ = index.get(call_id, ("", {}))
+            if name != ctx.perturbation.tool:
+                continue
+            target_seen = True
+            delay_ms = ctx.state.tool_latency_cache.setdefault(
+                call_id, ctx.perturbation.delay_ms
+            )
+            await asyncio.sleep(delay_ms / 1000)
+            diff_hash = hashlib.sha256(
+                json.dumps(
+                    {"tool_call_id": call_id, "delay_ms": delay_ms},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            ctx.state.record_perturbation(True, diff_hash)
+            self.store.append_trace(ctx.run_id, {
+                "ts": utc_now(),
+                "event": "perturbation",
+                "perturbation": ctx.perturbation.id,
+                "applied": True,
+                "diff_hash": diff_hash,
+                "delay_ms": delay_ms,
+            })
+        if not target_seen:
+            self._record_perturbation(
+                ctx, None, None, "target tool was never called"
+            )
 
     def _record_perturbation(self, ctx: RunContext, before: Any, after: Any,
                              reason: str) -> None:

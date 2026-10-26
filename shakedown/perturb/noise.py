@@ -7,6 +7,14 @@ import re
 
 from shakedown.perturb.base import Perturbation
 
+_PARAPHRASE_TERMS = {
+    "please": "kindly",
+    "fix": "repair",
+    "bug": "defect",
+    "function": "routine",
+    "tests": "test suite",
+}
+
 
 class NoisePerturbation(Perturbation):
     def __init__(self, mode: str):
@@ -23,7 +31,27 @@ class NoisePerturbation(Perturbation):
             for message in out.get("messages", []):
                 if message.get("role") == "user" and isinstance(message.get("content"), str):
                     message["content"] = _typo(message["content"], ctx)
+        elif self.mode == "paraphrase":
+            for message in out.get("messages", []):
+                if message.get("role") == "user" and isinstance(message.get("content"), str):
+                    message["content"] = _paraphrase(message["content"])
         return out
+
+
+def _paraphrase(text: str) -> str:
+    """Apply a small, deterministic synonym set without external model calls."""
+    for source, replacement in _PARAPHRASE_TERMS.items():
+        text = re.sub(
+            rf"\b{source}\b",
+            lambda match: (
+                replacement.upper() if match.group().isupper()
+                else replacement.capitalize() if match.group()[0].isupper()
+                else replacement
+            ),
+            text,
+            flags=re.IGNORECASE,
+        )
+    return text
 
 
 def _typo(text: str, ctx) -> str:

@@ -48,6 +48,7 @@ class RunState:
         self.fired: set[str] = set()
         self.read_cache: dict[str, str] = {}
         self.tool_result_cache: dict[str, str] = {}
+        self.tool_latency_cache: dict[str, int] = {}
         self.current_tool_call_id = ""
         self.calls = 0
         self.prompt_tokens = 0
