@@ -30,7 +30,7 @@ def _typo(text: str, ctx) -> str:
     """Swap two adjacent letters in a few long words, deterministically."""
     words = text.split(" ")
     for i, word in enumerate(words):
-        if len(word) > 6 and ctx.rng.random() < 0.08:
-            j = ctx.rng.randrange(1, len(word) - 2)
+        if len(word) > 6 and ctx.state.rng.random() < 0.08:
+            j = ctx.state.rng.randrange(1, len(word) - 2)
             words[i] = word[:j] + word[j + 1] + word[j] + word[j + 2:]
     return " ".join(words)

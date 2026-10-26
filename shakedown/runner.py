@@ -142,6 +142,7 @@ class Runner:
             task_id=task.id, task_name=task.name, cell_id=cell_id,
             cell_label=cell_label, cell_kind=cell_kind, params=params or {},
             started_at=started, duration_s=round(duration, 3), success=success,
+            invalid=stats.invalid,
             exit_code=test_exit, agent_exit=agent_exit, timed_out=timed_out,
             model_calls=stats.calls, prompt_tokens=stats.prompt_tokens,
             completion_tokens=stats.completion_tokens,

@@ -1,0 +1,5 @@
+# Audit Log
+
+| Finding | Location | Fix | Regression test |
+|---|---|---|---|
+| Ablation and noise perturbations accessed a nonexistent `RunContext.rng` (`shakedown/perturb/ablation.py:55,66`; `shakedown/perturb/noise.py:33-34`); proxy request handling silently passed perturbation failures upstream (`shakedown/proxy.py:219-239`). | `shakedown/perturb/ablation.py:55,66`, `shakedown/perturb/noise.py:33-34`, `shakedown/proxy.py:219-239`, `shakedown/runner.py:145`, `shakedown/analysis.py:90-92,149-150,208-209,232`, `shakedown/report/template.html.j2:188` | Use the per-run `RunState.rng`; fail closed on request/tool-result perturbation errors, persist invalid status in each run, exclude invalid runs from pass-rate statistics, and surface invalid counts in the analysis and report. | `tests/test_perturbation_failures.py::test_ablation_and_noise_use_the_run_state_rng`; `tests/test_perturbation_failures.py::test_perturbation_failure_marks_run_invalid_and_never_passes_through`; `tests/test_perturbation_failures.py::test_analysis_excludes_invalid_runs_from_pass_rate_and_reports_them`; `tests/test_report.py::test_report_is_self_contained_and_escapes_embedded_run_data` |

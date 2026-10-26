@@ -32,6 +32,7 @@ def test_report_is_self_contained_and_escapes_embedded_run_data(tmp_path):
             cell_label=cell_label,
             cell_kind="baseline" if cell_id == "baseline" else "chaos",
             success=success,
+            invalid=run_id == "run-2",
             claimed_success=not success,
             final_message="DONE: tests passed",
             actions=["read_file:calc.py"],
@@ -41,6 +42,7 @@ def test_report_is_self_contained_and_escapes_embedded_run_data(tmp_path):
     html = report.read_text(encoding="utf-8")
 
     assert "Sensitivity heatmap" in html
+    assert "<span>Invalid runs</span><strong>1</strong>" in html
     assert "Failure taxonomy" in html
     assert "prefers-color-scheme" in html
     assert "https://" not in html

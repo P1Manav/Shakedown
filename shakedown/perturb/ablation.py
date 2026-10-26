@@ -52,7 +52,7 @@ class AblationPerturbation(Perturbation):
         for _, text in present:
             residual = residual.replace(text, "")
         residual = re.sub(r"\n{3,}", "\n\n", residual).strip()
-        ctx.rng.shuffle(present)
+        ctx.state.rng.shuffle(present)
         blocks = [text for _, text in present]
         if residual:
             blocks.append(residual)
@@ -63,5 +63,5 @@ def _shuffle_sentences(text: str, ctx) -> str:
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
     if len(sentences) < 2:
         return text
-    ctx.rng.shuffle(sentences)
+    ctx.state.rng.shuffle(sentences)
     return " ".join(sentences)

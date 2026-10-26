@@ -30,6 +30,7 @@ class RunResult:
     started_at: str = ""
     duration_s: float = 0.0
     success: bool = False
+    invalid: bool = False
     exit_code: int | None = None
     agent_exit: int | None = None
     timed_out: bool = False

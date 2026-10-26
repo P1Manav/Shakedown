@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 FAILURE_CLASSES = ["loop", "call-cap-hit", "malformed-tool-call", "gave-up",
-                   "false-success", "timeout", "other"]
+                   "false-success", "timeout", "invalid", "other"]
 
 CLASS_LABELS = {
     "loop": "Loop",
@@ -14,6 +14,7 @@ CLASS_LABELS = {
     "gave-up": "Gave up",
     "false-success": "False success",
     "timeout": "Timeout",
+    "invalid": "Invalid run",
     "other": "Other",
     "none": "Passed",
 }
@@ -31,6 +32,8 @@ def _has_repeated_action(actions: list[str]) -> bool:
 
 
 def classify_run(run: dict, max_calls: int | None = None) -> str:
+    if run.get("invalid"):
+        return "invalid"
     if run.get("success"):
         return "none"
     if run.get("timed_out"):
@@ -71,6 +74,6 @@ def aggregate_taxonomy(runs: list[dict]) -> dict:
         cls = run.get("failure_class") or classify_run(run)
         if cls in counts:
             counts[cls] += 1
-    failed = sum(1 for r in runs if not r.get("success"))
+    failed = sum(1 for r in runs if r.get("invalid") or not r.get("success"))
     return {"counts": counts, "failed": failed, "total": len(runs),
             "other_share": counts["other"] / failed if failed else 0.0}

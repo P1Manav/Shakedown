@@ -84,9 +84,11 @@ def _label(comparison, adjusted_p: float, alpha: float, meaningful_drop: float,
 
 def build_analysis(store: Store, meta: dict | None = None) -> dict:
     meta = meta or store.load_meta()
-    runs = store.load_runs()
-    if not runs:
+    all_runs = store.load_runs()
+    if not all_runs:
         raise SystemExit("no runs recorded in this experiment")
+    invalid_runs = [r for r in all_runs if r.get("invalid", False)]
+    runs = [r for r in all_runs if not r.get("invalid", False)]
     budget = BudgetSpec(**meta.get("budget", {}))
     alpha = budget.alpha
     correction = budget.correction
@@ -94,7 +96,8 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
 
     baseline = [r for r in runs if r["cell_id"] == "baseline"]
     if not baseline:
-        raise SystemExit("no baseline runs; run the baseline first")
+        raise SystemExit("no valid baseline runs; run the baseline first")
+    all_baseline = [r for r in all_runs if r["cell_id"] == "baseline"]
     k0, n0 = sum(1 for r in baseline if r["success"]), len(baseline)
     base_rate = k0 / n0
     base_ci = wilson_interval(k0, n0)
@@ -107,10 +110,13 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
 
     cell_order = [c["id"] for c in meta.get("cells", []) if c.get("id") != "baseline"]
     by_cell: dict[str, list[dict]] = defaultdict(list)
-    for run in runs:
+    all_by_cell: dict[str, list[dict]] = defaultdict(list)
+    for run in all_runs:
         if run["cell_id"] != "baseline":
-            by_cell[run["cell_id"]].append(run)
-    for cid in sorted(by_cell):
+            all_by_cell[run["cell_id"]].append(run)
+            if not run.get("invalid", False):
+                by_cell[run["cell_id"]].append(run)
+    for cid in sorted(all_by_cell):
         if cid not in cell_order:
             cell_order.append(cid)
 
@@ -140,10 +146,12 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             mde = minimum_detectable_effect(base_rate, n, n0, family_alpha)
         raw_cells.append({
             "id": cid, "label": label, "kind": kind, "params": params,
-            "n": n, "k": k, "rate": (k / n) if n else 0.0,
+            "n": n, "k": k, "invalid_runs": sum(
+                1 for r in all_by_cell.get(cid, []) if r.get("invalid", False)),
+            "rate": (k / n) if n else 0.0,
             "comparison": comparison_data,
             "mde": mde, "claims": aggregate_claims(group),
-            "taxonomy": aggregate_taxonomy(group),
+            "taxonomy": aggregate_taxonomy(all_by_cell.get(cid, [])),
             "per_task": _per_task(group),
             "_raw": comparison.p_value if comparison else 1.0,
         })
@@ -182,7 +190,7 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         cell.pop("_raw", None)
 
     baseline_claims = aggregate_claims(baseline)
-    baseline_taxonomy = aggregate_taxonomy(baseline)
+    baseline_taxonomy = aggregate_taxonomy(all_baseline)
     baseline_cost = _cost_block(baseline, None, base_rate, False)
 
     # Ranked fix-first list (suggestion text lives in fix.py to avoid a cycle).
@@ -191,18 +199,21 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
 
     divergence = divergence_analysis(runs)
 
-    total_tokens = sum(r.get("prompt_tokens", 0) + r.get("completion_tokens", 0) for r in runs)
-    total_usd = sum(r.get("cost_usd", 0.0) for r in runs)
+    total_tokens = sum(r.get("prompt_tokens", 0) + r.get("completion_tokens", 0)
+                       for r in all_runs)
+    total_usd = sum(r.get("cost_usd", 0.0) for r in all_runs)
     summary = {
-        "runs": len(runs),
+        "runs": len(all_runs),
         "baseline_runs": n0,
+        "invalid_runs": len(invalid_runs),
+        "valid_runs": len(runs),
         "cells": len([c for c in raw_cells if c["n"] > 0]),
         "tasks": len({r["task_id"] for r in runs}),
         "model": meta.get("model", {}),
         "spend_usd": round(total_usd, 6),
         "tokens": total_tokens,
-        "calls": sum(r.get("model_calls", 0) for r in runs),
-        "started_at": min((r.get("started_at", "") for r in runs), default=""),
+        "calls": sum(r.get("model_calls", 0) for r in all_runs),
+        "started_at": min((r.get("started_at", "") for r in all_runs), default=""),
         "finished_at": meta.get("finished_at", ""),
         "elapsed_minutes": meta.get("elapsed_minutes"),
         "stopped_reason": meta.get("stopped_reason", ""),
@@ -218,6 +229,7 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         "summary": summary,
         "baseline": {
             "n": n0, "k": k0, "rate": base_rate,
+            "invalid_runs": sum(1 for r in all_baseline if r.get("invalid", False)),
             "wilson": [base_ci.low, base_ci.high],
             "wilson_text": str(base_ci),
             "mde_at_n": round(minimum_detectable_effect(base_rate, n0, n0, alpha) * 100, 1),

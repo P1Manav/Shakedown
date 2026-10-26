@@ -218,12 +218,27 @@ class ProxyServer:
 
         try:
             forwarded = ctx.perturbation.apply_request(payload, ctx)
-        except Exception as exc:  # noqa: BLE001 - degrade to passthrough, log it
+        except Exception as exc:  # noqa: BLE001 - perturbation failures invalidate the run
             ctx.state.errors.append(f"perturbation failed: {exc}")
-            forwarded = payload
+            ctx.state.invalid = True
+            self.store.append_trace(run_id, {
+                "ts": utc_now(), "event": "perturbation_error",
+                "phase": "request", "error": str(exc),
+            })
+            return _error(f"perturbation failed: {exc}; run is invalid", 500, "invalid_run")
         if ctx.fix_line:
             forwarded = _inject_fix(forwarded, ctx.fix_line)
-        forwarded = self._apply_tool_faults(forwarded, ctx)
+        try:
+            forwarded = self._apply_tool_faults(forwarded, ctx)
+        except Exception as exc:  # noqa: BLE001 - perturbation failures invalidate the run
+            ctx.state.errors.append(f"tool-result perturbation failed: {exc}")
+            ctx.state.invalid = True
+            self.store.append_trace(run_id, {
+                "ts": utc_now(), "event": "perturbation_error",
+                "phase": "tool_result", "error": str(exc),
+            })
+            return _error(f"tool-result perturbation failed: {exc}; run is invalid",
+                          500, "invalid_run")
         _cap_output_tokens(forwarded)
         forwarded.setdefault("model", forwarded.get("model", "unknown"))
 

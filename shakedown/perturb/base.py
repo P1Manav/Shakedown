@@ -51,4 +51,5 @@ class RunState:
         self.cost_usd = 0.0
         self.cached_calls = 0
         self.errors: list[str] = []
+        self.invalid = False
         self.rng = random.Random(run_id)
