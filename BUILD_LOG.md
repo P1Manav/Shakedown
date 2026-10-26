@@ -55,3 +55,13 @@
 **Spend to date:** $0.00 across 94 local-model runs and 489 calls, using local Ollama only. No paid model endpoint was used; the configured hard cap remains $15.
 
 **Known limits:** The full default grid and fix remeasurement were not run because the tiny smoke was for pipeline verification, not statistical inference. Results from the one-run smoke are not suitable for conclusions. Temporary workspaces are not OS-level security sandboxes.
+
+## Checkpoint 7 — release validation and full-grid smoke
+
+**Validation:** The full suite passes (44 tests), all four benchmark self-tests pass, and a built wheel installed into a clean virtual environment and passed the same four self-tests. `git diff --check` is clean. A complete 12-run-per-cell demo exercised all 20 perturbation cells across four tasks and generated a self-contained 102 KB HTML report.
+
+**Observed smoke results:** The 12-run baseline was 5/12 (41.7%; Wilson 95% CI 19.3–68.0%). All 20 perturbation cells were correctly labeled inconclusive after Holm correction; the cell MDE was 56.7 points. The empty-result fault had 0/12 passes and 5/12 false-success claims, while truncation had the same 5/12 pass rate as baseline and 1/12 false-success claims. These are exploratory observations, not significant effects; no fix rerun was warranted. The demo did not reproduce the aspirational truncated-output story.
+
+**Spend:** $0.00 across 252 runs, 1,181 model calls, and 1,366,682 tokens using local `qwen2.5-coder:7b`. No API key or `.env` file was used.
+
+**Next:** Run the adaptive grid at up to 30 runs per cell to improve power before treating any perturbation as a finding. Optional cross-agent proof and model-size comparison remain out of scope for release validation.
