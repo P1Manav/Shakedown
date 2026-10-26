@@ -97,6 +97,7 @@ def test_runner_derives_agent_metrics_from_proxy_trace_not_stdout_markers(
 
     assert result.steps == 3
     assert result.actions == ["read_file:calc.py"] * 3
+    assert result.normalized_actions == ['read_file({"path":"calc.py"})'] * 3
     assert result.final_message == "DONE: all tests passed"
     assert result.claimed_success is True
     assert {"event": "loop_detected", "action": "read_file:calc.py"} in result.events

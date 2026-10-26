@@ -8,10 +8,13 @@ divergence point.  This is descriptive, not a significance test.
 
 from __future__ import annotations
 
+import hashlib
+import random
 from collections import Counter
 
 TV_THRESHOLD = 0.5
 MIN_GROUP = 2
+PERMUTATIONS = 999
 
 
 def _tv(pass_counter: Counter, fail_counter: Counter) -> float:
@@ -23,20 +26,22 @@ def _tv(pass_counter: Counter, fail_counter: Counter) -> float:
     return 0.5 * sum(abs(pass_counter[k] / total_p - fail_counter[k] / total_f) for k in keys)
 
 
-def _analyze_group(runs: list[dict]) -> dict | None:
-    passing = [r for r in runs if r.get("success")]
-    failing = [r for r in runs if not r.get("success")]
-    if len(passing) < MIN_GROUP or len(failing) < MIN_GROUP:
-        return None
+def _actions(run: dict) -> list[str]:
+    return run.get("normalized_actions") or run.get("actions") or []
 
-    max_len = max(len(r.get("actions") or []) for r in runs)
+
+def _timeline(paths: list[list[str]], labels: list[bool]) -> list[dict]:
+    max_len = max((len(path) for path in paths), default=0)
     timeline = []
-    divergence = None
     for step in range(max_len):
-        pass_actions = Counter(r["actions"][step] for r in passing
-                               if len(r.get("actions") or []) > step)
-        fail_actions = Counter(r["actions"][step] for r in failing
-                               if len(r.get("actions") or []) > step)
+        pass_actions = Counter(
+            path[step] for path, passed in zip(paths, labels)
+            if passed and len(path) > step
+        )
+        fail_actions = Counter(
+            path[step] for path, passed in zip(paths, labels)
+            if not passed and len(path) > step
+        )
         if sum(pass_actions.values()) < MIN_GROUP or sum(fail_actions.values()) < MIN_GROUP:
             continue
         tv = _tv(pass_actions, fail_actions)
@@ -51,22 +56,69 @@ def _analyze_group(runs: list[dict]) -> dict | None:
             "fail_dist": dict(fail_actions.most_common(4)),
         }
         timeline.append(entry)
-        if divergence is None and tv >= TV_THRESHOLD:
-            divergence = entry
+    return timeline
+
+
+def _permutation_p(runs: list[dict], observed_max_tv: float | None) -> float | None:
+    if observed_max_tv is None:
+        return None
+    paths = [_actions(run) for run in runs]
+    labels = [bool(run.get("success")) for run in runs]
+    task_indices: dict[str, list[int]] = {}
+    for index, run in enumerate(runs):
+        task_indices.setdefault(str(run.get("task_id", "")), []).append(index)
+    seed_material = "\0".join(
+        str(run.get("run_id", index)) for index, run in enumerate(runs)
+    )
+    rng = random.Random(int.from_bytes(
+        hashlib.sha256(seed_material.encode("utf-8")).digest()[:8], "big"
+    ))
+    exceedances = 0
+    for _ in range(PERMUTATIONS):
+        permuted = labels.copy()
+        for indices in task_indices.values():
+            shuffled = [labels[index] for index in indices]
+            rng.shuffle(shuffled)
+            for index, label in zip(indices, shuffled):
+                permuted[index] = label
+        permuted_timeline = _timeline(paths, permuted)
+        permuted_max = max((entry["tv"] for entry in permuted_timeline), default=0.0)
+        if permuted_max >= observed_max_tv - 1e-12:
+            exceedances += 1
+    return (exceedances + 1) / (PERMUTATIONS + 1)
+
+
+def _analyze_group(runs: list[dict]) -> dict | None:
+    labels = [bool(run.get("success")) for run in runs]
+    passing = sum(labels)
+    failing = len(labels) - passing
+    if passing < MIN_GROUP or failing < MIN_GROUP:
+        return None
+
+    paths = [_actions(run) for run in runs]
+    timeline = _timeline(paths, labels)
+    divergence = next(
+        (entry for entry in timeline if entry["tv"] >= TV_THRESHOLD), None
+    )
+    max_tv = max((entry["tv"] for entry in timeline), default=None)
+    permutation_p = _permutation_p(runs, max_tv)
 
     # Where do trajectories end? A failing run that stops at step 3 while
     # passing runs reach step 7 is itself a useful divergence signal.
-    pass_lengths = [len(r.get("actions") or []) for r in passing]
-    fail_lengths = [len(r.get("actions") or []) for r in failing]
+    pass_lengths = [len(path) for path, passed in zip(paths, labels) if passed]
+    fail_lengths = [len(path) for path, passed in zip(paths, labels) if not passed]
     return {
-        "pass_n": len(passing),
-        "fail_n": len(failing),
-        "pass_rate": len(passing) / len(runs),
+        "pass_n": passing,
+        "fail_n": failing,
+        "pass_rate": passing / len(runs),
         "timeline": timeline,
         "divergence_step": divergence["step"] if divergence else None,
         "divergence": divergence,
         "mean_steps_pass": round(sum(pass_lengths) / max(1, len(pass_lengths)), 2),
         "mean_steps_fail": round(sum(fail_lengths) / max(1, len(fail_lengths)), 2),
+        "exploratory": True,
+        "exploratory_permutation_p": permutation_p,
+        "permutation_statistic": "maximum total-variation distance across eligible steps",
     }
 
 
@@ -92,4 +144,4 @@ def divergence_analysis(runs: list[dict]) -> dict:
     else:
         headline = pooled
     return {"per_task": tasks, "pooled": pooled, "headline": headline,
-            "threshold": TV_THRESHOLD}
+            "threshold": TV_THRESHOLD, "exploratory": True}

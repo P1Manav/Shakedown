@@ -246,7 +246,7 @@
     <section class="lower-grid">
       <article class="panel content-card">
         <div class="section-head"><div><h2>First divergence</h2>
-          <p>Where passing and failing traces first separate (descriptive, not a significance test).</p></div></div>
+          <p>Exploratory comparison of normalized tool calls; not a confirmatory result.</p></div></div>
         {% if a.divergence.headline and a.divergence.headline.timeline %}
         <div class="timeline">
           {% for p in a.divergence.headline.timeline %}
@@ -259,6 +259,10 @@
         </div>
         {% else %}
         <div class="empty">Not enough passing and failing traces to compare action paths.</div>
+        {% endif %}
+        {% if a.divergence.headline and a.divergence.headline.exploratory_permutation_p is not none %}
+        <p class="cell-note">Exploratory within-task permutation test of maximum TV across eligible steps:
+          p={{ "%.4f"|format(a.divergence.headline.exploratory_permutation_p) }}.</p>
         {% endif %}
       </article>
 

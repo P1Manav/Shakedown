@@ -46,6 +46,7 @@ class RunResult:
     cost_usd: float = 0.0
     steps: int = 0
     actions: list[str] = field(default_factory=list)
+    normalized_actions: list[str] = field(default_factory=list)
     final_message: str = ""
     claimed_success: bool = False
     failure_class: str = ""

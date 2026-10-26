@@ -8,6 +8,7 @@ and an executable success check that runs *after* the agent exits.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import shutil
 import subprocess
@@ -133,6 +134,7 @@ def parse_agent_output(stdout: str) -> tuple[str, list[str], list[dict]]:
 
 def parse_proxy_trace(trace: list[dict]) -> dict:
     actions: list[str] = []
+    normalized_actions: list[str] = []
     events: list[dict] = []
     final_message = ""
 
@@ -210,6 +212,13 @@ def parse_proxy_trace(trace: list[dict]) -> dict:
             )
             action = f"{name}:{primary}"
             actions.append(action)
+            normalized_args = {
+                key: _normalize_trace_value(value)
+                for key, value in sorted(args.items())
+            }
+            normalized_actions.append(
+                f"{name}({json.dumps(normalized_args, sort_keys=True, separators=(',', ':'))})"
+            )
             events.append({
                 "event": "tool_call",
                 "step": len(actions) - 1,
@@ -224,10 +233,27 @@ def parse_proxy_trace(trace: list[dict]) -> dict:
     return {
         "steps": len(actions),
         "actions": actions,
+        "normalized_actions": normalized_actions,
         "final_message": final_message,
         "claimed_success": detect_claim(final_message),
         "events": events,
     }
+
+
+def _normalize_trace_value(value):
+    if isinstance(value, str) and len(value) > 256:
+        return {
+            "sha256": hashlib.sha256(value.encode("utf-8")).hexdigest(),
+            "length": len(value),
+        }
+    if isinstance(value, list):
+        return [_normalize_trace_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _normalize_trace_value(item)
+            for key, item in sorted(value.items())
+        }
+    return value
 
 
 def _message_text(content) -> str:
@@ -347,6 +373,7 @@ class Runner:
             completion_tokens=stats.completion_tokens,
             cost_usd=round(stats.cost_usd, 8),
             steps=trace_metrics["steps"], actions=trace_metrics["actions"],
+            normalized_actions=trace_metrics["normalized_actions"],
             final_message=trace_metrics["final_message"],
             claimed_success=trace_metrics["claimed_success"],
             events=trace_metrics["events"] + (
