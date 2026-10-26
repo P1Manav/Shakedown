@@ -14,6 +14,8 @@ import os
 import socket
 import threading
 import time
+import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -21,17 +23,18 @@ from typing import Any
 import httpx
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from shakedown.cost import (
     BudgetExceeded,
+    BudgetReservation,
     BudgetTracker,
     Pricing,
     estimate_usd,
     request_cost_ceiling,
     validate_endpoint_pricing,
 )
-from shakedown.perturb.base import Baseline, Perturbation, RunState
+from shakedown.perturb.base import Perturbation, RunState
 from shakedown.store import Store, utc_now
 
 
@@ -96,10 +99,31 @@ def _diff_hash(before: Any, after: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _parse_sse_events(body: bytes) -> list[dict]:
+    events = []
+    data_lines = []
+    text = body.decode("utf-8", errors="replace")
+    for line in text.splitlines() + [""]:
+        if line == "":
+            if data_lines:
+                data = "\n".join(data_lines)
+                if data != "[DONE]":
+                    try:
+                        parsed = json.loads(data)
+                    except json.JSONDecodeError:
+                        parsed = {"data": data}
+                    if isinstance(parsed, dict):
+                        events.append(parsed)
+                data_lines = []
+        elif line.startswith("data:"):
+            data_lines.append(line[5:].lstrip())
+    return events
+
+
 class ProxyServer:
     def __init__(self, upstream_base_url: str, store: Store, budget: BudgetTracker,
                  pricing: Pricing, upstream_api_key: str = "local",
-                 upstream_timeout_s: float = 300.0):
+                 upstream_timeout_s: float = 300.0, upstream_retries: int = 2):
         self.upstream_base_url = upstream_base_url.rstrip("/")
         self.upstream_api_key = upstream_api_key
         self.store = store
@@ -111,6 +135,7 @@ class ProxyServer:
             allow_unpriced_remote=os.environ.get("MODEL_API_FREE", "").lower() == "true",
         )
         self.timeout_s = upstream_timeout_s
+        self.upstream_retries = max(0, upstream_retries)
         self.runs: dict[str, RunContext] = {}
         self._lock = threading.Lock()
         self._cache: dict[str, dict] = {}
@@ -203,8 +228,19 @@ class ProxyServer:
 
         @app.get("/run/{run_id}/v1/models")
         @app.get("/v1/models")
-        async def models():
-            return {"object": "list", "data": [{"id": "shakedown", "object": "model"}]}
+        async def models(run_id: str | None = None):
+            if run_id:
+                ctx = self.runs.get(run_id)
+                if not ctx:
+                    return _error(f"unknown run: {run_id}", 404)
+                model_ids = [ctx.model_name or "shakedown"]
+            else:
+                model_ids = sorted({
+                    ctx.model_name for ctx in self.runs.values() if ctx.model_name
+                }) or ["shakedown"]
+            return {"object": "list", "data": [
+                {"id": model_id, "object": "model"} for model_id in model_ids
+            ]}
 
         @app.post("/run/{run_id}/v1/chat/completions")
         async def chat_run(run_id: str, request: Request):
@@ -286,7 +322,8 @@ class ProxyServer:
         cached = False
         cache_key = ""
         temperature = forwarded.get("temperature")
-        if isinstance(temperature, (int, float)) and temperature == 0.0:
+        if (isinstance(temperature, (int, float)) and temperature == 0.0
+                and not forwarded.get("stream")):
             cache_key = hashlib.sha256(
                 json.dumps(
                     {"run_id": run_id, "payload": forwarded},
@@ -313,10 +350,13 @@ class ProxyServer:
                 upstream_headers = {"Content-Type": "application/json"}
                 upstream_auth = "Bearer " + self.upstream_api_key
                 upstream_headers["Author" + "ization"] = upstream_auth
-                response = await client.post(
-                    self.upstream_base_url + "/chat/completions",
-                    json=forwarded,
-                    headers=upstream_headers)
+                if forwarded.get("stream") is True:
+                    return await self._handle_stream(
+                        run_id, ctx, client, forwarded, upstream_headers, reservation
+                    )
+                response = await self._retry_response(
+                    run_id, client, forwarded, upstream_headers
+                )
                 body = response.json()
                 if response.status_code >= 400:
                     self.budget.finish(reservation)
@@ -361,6 +401,176 @@ class ProxyServer:
         })
         headers = {"X-Shakedown-Run-Id": run_id, "X-Shakedown-Cached": str(cached).lower()}
         return JSONResponse(content=body, headers=headers)
+
+    async def _retry_response(self, run_id: str, client: httpx.AsyncClient, payload: dict,
+                              headers: dict) -> httpx.Response:
+        retryable = {408, 425, 429, 500, 502, 503, 504}
+        for attempt in range(self.upstream_retries + 1):
+            try:
+                response = await client.post(
+                    self.upstream_base_url + "/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+            except httpx.TransportError as exc:
+                if attempt >= self.upstream_retries:
+                    raise
+                self.store.append_trace(run_id, {
+                    "ts": utc_now(), "event": "upstream_retry",
+                    "attempt": attempt + 1, "error": str(exc),
+                })
+                await asyncio.sleep(min(0.05 * (2 ** attempt), 0.25))
+                continue
+            if response.status_code not in retryable:
+                break
+            if attempt >= self.upstream_retries:
+                break
+            self.store.append_trace(run_id, {
+                "ts": utc_now(), "event": "upstream_retry",
+                "attempt": attempt + 1, "status": response.status_code,
+            })
+            await response.aclose()
+            await asyncio.sleep(min(0.05 * (2 ** attempt), 0.25))
+        return response
+
+    async def _open_stream(self, run_id: str, client: httpx.AsyncClient, payload: dict,
+                           headers: dict):
+        retryable = {408, 425, 429, 500, 502, 503, 504}
+        last_error = None
+        for attempt in range(self.upstream_retries + 1):
+            manager = client.stream(
+                "POST",
+                self.upstream_base_url + "/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+            try:
+                response = await manager.__aenter__()
+            except httpx.TransportError as exc:
+                last_error = exc
+                if attempt >= self.upstream_retries:
+                    raise
+                self.store.append_trace(run_id, {
+                    "ts": utc_now(), "event": "upstream_retry",
+                    "attempt": attempt + 1, "error": str(exc),
+                })
+                await asyncio.sleep(min(0.05 * (2 ** attempt), 0.25))
+                continue
+            if response.status_code not in retryable or attempt >= self.upstream_retries:
+                return manager, response
+            self.store.append_trace(run_id, {
+                "ts": utc_now(), "event": "upstream_retry",
+                "attempt": attempt + 1, "status": response.status_code,
+            })
+            await manager.__aexit__(None, None, None)
+            await asyncio.sleep(min(0.05 * (2 ** attempt), 0.25))
+        raise RuntimeError(f"upstream streaming retries exhausted: {last_error}")
+
+    async def _handle_stream(self, run_id: str, ctx: RunContext,
+                             client: httpx.AsyncClient, payload: dict,
+                             headers: dict, reservation: BudgetReservation):
+        try:
+            manager, response = await self._open_stream(
+                run_id, client, payload, headers
+            )
+        except Exception as exc:  # noqa: BLE001 - upstream errors invalidate this run
+            self.budget.finish(reservation)
+            ctx.state.errors.append(f"upstream stream exception: {exc}")
+            ctx.state.invalid = True
+            self.store.append_trace(run_id, {
+                "ts": utc_now(), "event": "upstream_exception", "error": str(exc),
+            })
+            return _error(f"upstream stream failed: {exc}", 502, "upstream_error")
+
+        if response.status_code >= 400:
+            try:
+                raw_body = await response.aread()
+            finally:
+                await manager.__aexit__(None, None, None)
+            self.budget.finish(reservation)
+            try:
+                body = json.loads(raw_body)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                body = raw_body.decode("utf-8", errors="replace")
+            ctx.state.errors.append(
+                f"upstream {response.status_code}: {str(body)[:300]}"
+            )
+            ctx.state.invalid = True
+            self.store.append_trace(run_id, {
+                "ts": utc_now(), "event": "upstream_error",
+                "status": response.status_code, "body": body,
+            })
+            return JSONResponse(status_code=502, content={
+                "error": {"message": f"upstream returned {response.status_code}",
+                          "type": "upstream_error", "code": 502}})
+
+        async def stream_body() -> AsyncIterator[bytes]:
+            chunks = []
+            finished = False
+            try:
+                async for chunk in response.aiter_bytes():
+                    chunks.append(chunk)
+                    yield chunk
+                raw = b"".join(chunks)
+                events = _parse_sse_events(raw)
+                usage = next(
+                    (event.get("usage") or {} for event in reversed(events)
+                     if isinstance(event, dict) and event.get("usage")),
+                    {},
+                )
+                prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
+                completion_tokens = int(usage.get("completion_tokens", 0) or 0)
+                usd = estimate_usd(prompt_tokens, completion_tokens, ctx.pricing)
+                ctx.state.prompt_tokens += prompt_tokens
+                ctx.state.completion_tokens += completion_tokens
+                ctx.state.cost_usd += usd
+                self.budget.finish(reservation, usd)
+                finished = True
+                self.store.append_trace(run_id, {
+                    "ts": utc_now(), "event": "response", "stream": True,
+                    "perturbation": ctx.perturbation.id,
+                    **({"seed": ctx.state.seed} if ctx.supports_seed else {}),
+                    "usage": {"prompt_tokens": prompt_tokens,
+                              "completion_tokens": completion_tokens,
+                              "cost_usd": usd},
+                    "body": {"stream": True, "events": events},
+                })
+            except Exception as exc:  # noqa: BLE001 - stream failures invalidate this run
+                ctx.state.errors.append(f"upstream stream exception: {exc}")
+                ctx.state.invalid = True
+                self.store.append_trace(run_id, {
+                    "ts": utc_now(), "event": "upstream_stream_error", "error": str(exc),
+                })
+                raise
+            finally:
+                if not finished:
+                    events = _parse_sse_events(b"".join(chunks))
+                    usage = next(
+                        (event.get("usage") or {} for event in reversed(events)
+                         if isinstance(event, dict) and event.get("usage")),
+                        {},
+                    )
+                    prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
+                    completion_tokens = int(usage.get("completion_tokens", 0) or 0)
+                    usd = estimate_usd(prompt_tokens, completion_tokens, ctx.pricing)
+                    ctx.state.prompt_tokens += prompt_tokens
+                    ctx.state.completion_tokens += completion_tokens
+                    ctx.state.cost_usd += usd
+                    self.budget.finish(reservation, usd)
+                await manager.__aexit__(None, None, None)
+
+        stream_headers = {
+            key: value for key, value in response.headers.items()
+            if key.lower() in {"content-type", "cache-control", "x-request-id"}
+        }
+        stream_headers["X-Shakedown-Run-Id"] = run_id
+        stream_headers["X-Shakedown-Cached"] = "false"
+        return StreamingResponse(
+            stream_body(),
+            status_code=response.status_code,
+            headers=stream_headers,
+            media_type=None,
+        )
 
     def _apply_tool_faults(self, payload: dict, ctx: RunContext) -> dict:
         messages = payload.get("messages") or []

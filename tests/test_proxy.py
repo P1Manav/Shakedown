@@ -5,6 +5,7 @@ import pytest
 
 from shakedown.cost import BudgetTracker, Pricing
 from shakedown.perturb.base import Baseline
+from shakedown.perturb.chaos import ChaosPerturbation
 from shakedown.proxy import ProxyServer, RunContext
 from shakedown.store import Store
 
@@ -32,6 +33,66 @@ class UpstreamFailure:
             json={"error": {"message": "temporarily unavailable"}},
             request=httpx.Request("POST", url),
         )
+
+
+class RetryingUpstream:
+    def __init__(self):
+        self.calls = []
+
+    async def post(self, url, json, headers):
+        self.calls.append({"url": url, "payload": json, "headers": headers})
+        status = 503 if len(self.calls) == 1 else 200
+        return httpx.Response(
+            status,
+            json=(
+                {"error": {"message": "temporarily unavailable"}}
+                if status == 503
+                else {
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                }
+            ),
+            request=httpx.Request("POST", url),
+        )
+
+
+class FakeStreamResponse:
+    headers = {"content-type": "text/event-stream; charset=utf-8"}
+
+    def __init__(self, chunks, status_code=200):
+        self.chunks = chunks
+        self.status_code = status_code
+
+    async def aiter_bytes(self):
+        for chunk in self.chunks:
+            yield chunk
+
+    async def aread(self):
+        return b"".join(self.chunks)
+
+
+class FakeStreamManager:
+    def __init__(self, response):
+        self.response = response
+
+    async def __aenter__(self):
+        return self.response
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        return False
+
+
+class StreamingUpstream:
+    def __init__(self, chunks, statuses=None):
+        self.chunks = chunks
+        self.statuses = statuses or []
+        self.calls = []
+
+    def stream(self, method, url, json, headers):
+        self.calls.append({"method": method, "url": url, "payload": json, "headers": headers})
+        index = len(self.calls) - 1
+        status = self.statuses[index] if index < len(self.statuses) else 200
+        return FakeStreamManager(FakeStreamResponse(self.chunks, status))
 
 
 def test_proxy_forwards_configured_key_caps_output_and_enforces_call_limit(tmp_path):
@@ -64,6 +125,9 @@ def test_proxy_forwards_configured_key_caps_output_and_enforces_call_limit(tmp_p
                 json={
                     "model": "open-model",
                     "messages": [{"role": "user", "content": "hello"}],
+                    "tools": [{"type": "function", "function": {"name": "test"}}],
+                    "tool_choice": "auto",
+                    "response_format": {"type": "json_object"},
                     "max_tokens": 5000,
                 },
             )
@@ -82,6 +146,11 @@ def test_proxy_forwards_configured_key_caps_output_and_enforces_call_limit(tmp_p
     )
     assert forwarded_credential == expected_credential
     assert upstream.calls[0]["payload"]["max_tokens"] == 2048
+    assert upstream.calls[0]["payload"]["tools"] == [
+        {"type": "function", "function": {"name": "test"}}
+    ]
+    assert upstream.calls[0]["payload"]["tool_choice"] == "auto"
+    assert upstream.calls[0]["payload"]["response_format"] == {"type": "json_object"}
     assert tracker.snapshot()["calls"] == 1
     assert tracker.snapshot()["usd"] == 0.00002
 
@@ -292,3 +361,186 @@ def test_proxy_rejects_request_before_upstream_when_cost_ceiling_exceeds_cap(tmp
     assert response.status_code == 429
     assert upstream.calls == []
     assert tracker.snapshot()["calls"] == 0
+
+
+def test_proxy_retries_transient_upstream_errors_without_double_counting_spend(tmp_path):
+    store = Store("proxy-retry", tmp_path)
+    tracker = BudgetTracker(max_calls=5, max_usd=0.01)
+    proxy = ProxyServer(
+        "https://model.example/v1",
+        store,
+        tracker,
+        Pricing(input_per_1m=1.0, output_per_1m=2.0),
+    )
+    upstream = RetryingUpstream()
+    proxy.app.state.client = upstream
+    context = RunContext(
+        run_id="retry-run",
+        task_id="task",
+        cell_id="baseline",
+        perturbation=Baseline(),
+        max_calls=2,
+        store=store,
+        pricing=Pricing(input_per_1m=1.0, output_per_1m=2.0),
+    )
+    proxy.register(context)
+
+    async def post_request():
+        transport = httpx.ASGITransport(app=proxy.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as client:
+            return await client.post(
+                "/run/retry-run/v1/chat/completions",
+                json={"model": "open-model", "messages": [{"role": "user", "content": "hi"}]},
+            )
+
+    response = asyncio.run(post_request())
+
+    assert response.status_code == 200
+    assert len(upstream.calls) == 2
+    assert context.state.calls == 1
+    assert tracker.snapshot()["calls"] == 1
+    assert tracker.snapshot()["usd"] == 0.00002
+    assert [row["event"] for row in store.load_trace("retry-run")].count(
+        "upstream_retry"
+    ) == 1
+
+
+def test_proxy_streams_sse_and_applies_tool_faults_to_request_messages(tmp_path):
+    store = Store("proxy-stream", tmp_path)
+    tracker = BudgetTracker(max_calls=5, max_usd=0.01)
+    proxy = ProxyServer(
+        "https://model.example/v1",
+        store,
+        tracker,
+        Pricing(input_per_1m=1.0, output_per_1m=2.0),
+    )
+    chunks = [
+        b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
+        b'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5}}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    upstream = StreamingUpstream(chunks)
+    proxy.app.state.client = upstream
+    context = RunContext(
+        run_id="stream-run",
+        task_id="task",
+        cell_id="chaos:empty_result",
+        perturbation=ChaosPerturbation("empty_result", "read_file"),
+        max_calls=2,
+        store=store,
+        pricing=Pricing(input_per_1m=1.0, output_per_1m=2.0),
+        model_name="open-model",
+        temperature=0.0,
+    )
+    proxy.register(context)
+    payload = {
+        "stream": True,
+        "messages": [
+            {
+                "role": "assistant",
+                "tool_calls": [{
+                    "id": "tool-1",
+                    "type": "function",
+                    "function": {"name": "read_file", "arguments": '{"path":"a.py"}'},
+                }],
+            },
+            {"role": "tool", "tool_call_id": "tool-1", "content": "original result"},
+        ],
+        "tools": [{"type": "function", "function": {"name": "read_file"}}],
+        "tool_choice": "required",
+        "response_format": {"type": "json_object"},
+    }
+
+    async def post_stream():
+        transport = httpx.ASGITransport(app=proxy.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as client:
+            return await client.post("/run/stream-run/v1/chat/completions", json=payload)
+
+    response = asyncio.run(post_stream())
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert response.content == b"".join(chunks)
+    sent = upstream.calls[0]["payload"]
+    assert sent["stream"] is True
+    assert sent["messages"][1]["content"] == ""
+    assert sent["tools"] == payload["tools"]
+    assert sent["tool_choice"] == "required"
+    assert sent["response_format"] == {"type": "json_object"}
+    assert context.state.prompt_tokens == 10
+    assert context.state.completion_tokens == 5
+    assert tracker.snapshot()["calls"] == 1
+    assert tracker.snapshot()["usd"] == 0.00002
+    response_event = next(
+        event for event in store.load_trace("stream-run") if event["event"] == "response"
+    )
+    assert response_event["body"]["events"][0]["choices"][0]["delta"]["content"] == "ok"
+
+
+def test_proxy_models_endpoint_advertises_configured_model(tmp_path):
+    proxy = ProxyServer(
+        "https://model.example/v1",
+        Store("proxy-models", tmp_path),
+        BudgetTracker(max_calls=1, max_usd=1.0),
+        Pricing(input_per_1m=1.0, output_per_1m=2.0),
+    )
+    context = RunContext(
+        run_id="models-run",
+        task_id="task",
+        cell_id="baseline",
+        perturbation=Baseline(),
+        max_calls=1,
+        store=proxy.store,
+        pricing=Pricing(),
+        model_name="configured-open-model",
+    )
+    proxy.register(context)
+
+    async def get_models():
+        transport = httpx.ASGITransport(app=proxy.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as client:
+            return await client.get("/run/models-run/v1/models")
+
+    response = asyncio.run(get_models())
+
+    assert response.status_code == 200
+    assert response.json()["data"][0]["id"] == "configured-open-model"
+
+
+def test_proxy_retries_stream_setup_without_double_counting_spend(tmp_path):
+    store = Store("proxy-stream-retry", tmp_path)
+    tracker = BudgetTracker(max_calls=5, max_usd=0.01)
+    proxy = ProxyServer(
+        "https://model.example/v1",
+        store,
+        tracker,
+        Pricing(input_per_1m=1.0, output_per_1m=2.0),
+    )
+    chunks = [b'data: {"usage":{"prompt_tokens":10,"completion_tokens":5}}\n\n']
+    upstream = StreamingUpstream(chunks, statuses=[503])
+    proxy.app.state.client = upstream
+    context = RunContext(
+        run_id="stream-retry-run",
+        task_id="task",
+        cell_id="baseline",
+        perturbation=Baseline(),
+        max_calls=2,
+        store=store,
+        pricing=Pricing(input_per_1m=1.0, output_per_1m=2.0),
+    )
+    proxy.register(context)
+
+    async def post_request():
+        transport = httpx.ASGITransport(app=proxy.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as client:
+            return await client.post(
+                "/run/stream-retry-run/v1/chat/completions",
+                json={"stream": True, "messages": [{"role": "user", "content": "hi"}]},
+            )
+
+    response = asyncio.run(post_request())
+
+    assert response.status_code == 200
+    assert len(upstream.calls) == 2
+    assert tracker.snapshot()["calls"] == 1
+    assert tracker.snapshot()["usd"] == 0.00002
