@@ -173,6 +173,8 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             "id": cid, "label": label, "kind": kind, "params": params,
             "n": n, "k": k, "invalid_runs": sum(
                 1 for r in all_by_cell.get(cid, []) if r.get("invalid", False)),
+            "tamper_detected": sum(
+                1 for r in all_by_cell.get(cid, []) if r.get("tamper_detected", False)),
             "rate": (k / n) if n else 0.0,
             "exposure": _exposure_block(group, k0, n0, family_z),
             "comparison": comparison_data,
@@ -232,6 +234,8 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         "runs": len(all_runs),
         "baseline_runs": n0,
         "invalid_runs": len(invalid_runs),
+        "invalid_rate": len(invalid_runs) / len(all_runs),
+        "tampering_runs": sum(1 for r in all_runs if r.get("tamper_detected", False)),
         "valid_runs": len(runs),
         "cells": len([c for c in raw_cells if c["n"] > 0]),
         "tasks": len({r["task_id"] for r in runs}),

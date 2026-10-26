@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 FAILURE_CLASSES = ["loop", "call-cap-hit", "malformed-tool-call", "gave-up",
-                   "false-success", "timeout", "invalid", "other"]
+                   "false-success", "timeout", "tampering", "invalid", "other"]
 
 CLASS_LABELS = {
     "loop": "Loop",
@@ -14,6 +14,7 @@ CLASS_LABELS = {
     "gave-up": "Gave up",
     "false-success": "False success",
     "timeout": "Timeout",
+    "tampering": "Test tampering",
     "invalid": "Invalid run",
     "other": "Other",
     "none": "Passed",
@@ -32,6 +33,8 @@ def _has_repeated_action(actions: list[str]) -> bool:
 
 
 def classify_run(run: dict, max_calls: int | None = None) -> str:
+    if run.get("tamper_detected"):
+        return "tampering"
     if run.get("invalid"):
         return "invalid"
     if run.get("success"):

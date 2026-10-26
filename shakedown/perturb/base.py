@@ -8,6 +8,7 @@ the proxy keeps the original request for traces.
 from __future__ import annotations
 
 import copy
+import hashlib
 import random
 from dataclasses import dataclass, field
 from typing import Any
@@ -43,8 +44,11 @@ class RunState:
 
     def __init__(self, run_id: str):
         self.run_id = run_id
+        self.seed = int.from_bytes(hashlib.sha256(run_id.encode("utf-8")).digest()[:4], "big")
         self.fired: set[str] = set()
         self.read_cache: dict[str, str] = {}
+        self.tool_result_cache: dict[str, str] = {}
+        self.current_tool_call_id = ""
         self.calls = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
@@ -54,7 +58,7 @@ class RunState:
         self.invalid = False
         self.perturbation_records: list[dict[str, Any]] = []
         self.exposure_reason = ""
-        self.rng = random.Random(run_id)
+        self.rng = random.Random(self.seed)
 
     @property
     def perturbation_applied(self) -> bool:

@@ -26,6 +26,64 @@ from shakedown.store import RunResult, Store, utc_now
 from shakedown.taxonomy import classify_run
 
 ROOT = Path(__file__).resolve().parents[1]
+_PROTECTED_CONFIGS = {
+    "pytest.ini", "tox.ini", "setup.cfg", "setup.py", "pyproject.toml",
+    "conftest.py", "sitecustomize.py", "pytest.py",
+}
+
+
+def _is_protected(relative: Path) -> bool:
+    return bool(relative.parts and (
+        relative.parts[0] == "tests"
+        or relative.name in _PROTECTED_CONFIGS
+        or relative.name == "pytest"
+    ))
+
+
+def _protected_snapshot(source: Path) -> dict[Path, bytes]:
+    return {
+        path.relative_to(source): path.read_bytes()
+        for path in source.rglob("*")
+        if path.is_file() and _is_protected(path.relative_to(source))
+    }
+
+
+def _restore_verification_workspace(workdir: Path, verification: Path,
+                                    pristine: dict[Path, bytes]) -> bool:
+    shutil.copytree(workdir, verification)
+    actual = {
+        path.relative_to(verification): path.read_bytes()
+        for path in verification.rglob("*")
+        if path.is_file() and _is_protected(path.relative_to(verification))
+    }
+    tampered = actual != pristine
+    tests_dir = verification / "tests"
+    if tests_dir.exists():
+        shutil.rmtree(tests_dir)
+
+    for path in sorted(
+        (p for p in verification.rglob("*") if p.is_dir() and p.name == "pytest"),
+        key=lambda item: len(item.parts),
+        reverse=True,
+    ):
+        relative = path.relative_to(verification)
+        if not any(relative in expected.parents for expected in pristine):
+            tampered = True
+            shutil.rmtree(path)
+
+    candidates = [
+        path for path in verification.rglob("*")
+        if path.is_file() and _is_protected(path.relative_to(verification))
+    ]
+    for path in candidates:
+        relative = path.relative_to(verification)
+        if relative not in pristine:
+            path.unlink()
+    for relative, content in pristine.items():
+        destination = verification / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+    return tampered
 
 
 def _kill_tree(proc: subprocess.Popen) -> None:
@@ -98,11 +156,14 @@ class Runner:
         if workdir.exists():
             shutil.rmtree(workdir, ignore_errors=True)
         shutil.copytree(task.source, workdir)
+        pristine_protected = _protected_snapshot(task.source)
 
         ctx = RunContext(run_id=run_id, task_id=task.id, cell_id=cell_id,
                          perturbation=perturbation, max_calls=task.max_model_calls,
                          store=self.store, pricing=self._pricing(task),
-                         fix_line=self.fix_line)
+                         fix_line=self.fix_line, model_name=task.model.name,
+                         temperature=task.model.temperature,
+                         supports_seed=task.model.supports_seed)
         self.proxy.register(ctx)
 
         env = dict(os.environ)
@@ -128,9 +189,15 @@ class Runner:
             command, workdir, env, task.agent_timeout_s)
         duration = time.perf_counter() - t0
 
+        verification = self.work_root / f"{run_id}-verification"
+        if verification.exists():
+            shutil.rmtree(verification, ignore_errors=True)
+        tamper_detected = _restore_verification_workspace(
+            workdir, verification, pristine_protected
+        )
         test_exit, test_out, test_err, test_timeout = run_command(
-            task.success_command, workdir, env, task.success_timeout_s)
-        success = (not test_timeout) and test_exit == 0
+            task.success_command, verification, env, task.success_timeout_s)
+        success = (not tamper_detected and not test_timeout and test_exit == 0)
 
         final, actions, events = parse_agent_output(stdout)
         claimed = detect_claim(final)
@@ -156,6 +223,7 @@ class Runner:
             cell_label=cell_label, cell_kind=cell_kind, params=params or {},
             started_at=started, duration_s=round(duration, 3), success=success,
             invalid=stats.invalid,
+            tamper_detected=tamper_detected,
             perturbation_applied=stats.perturbation_applied,
             perturbation_records=stats.perturbation_records,
             perturbation_diff_hashes=[
@@ -177,9 +245,17 @@ class Runner:
         )
         result.failure_class = classify_run(result.to_dict(), task.max_model_calls)
         self.store.append_run(result)
+        self.store.append_trace(run_id, {
+            "ts": utc_now(),
+            "event": "verification",
+            "tamper_detected": tamper_detected,
+            "test_exit": test_exit,
+            "test_timeout": test_timeout,
+        })
 
         if not self.keep_workspaces:
             shutil.rmtree(workdir, ignore_errors=True)
+            shutil.rmtree(verification, ignore_errors=True)
         return result
 
     @staticmethod

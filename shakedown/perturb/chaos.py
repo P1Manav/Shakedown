@@ -37,7 +37,7 @@ class ChaosPerturbation(Perturbation):
             return '{"ok": true, "output": "' + partial
 
         if self.fault == "error_once":
-            key = f"error_once:{self.tool}"
+            key = f"error_once:{ctx.state.current_tool_call_id}"
             if key not in ctx.state.fired:
                 ctx.state.fired.add(key)
                 return (f"ToolError: transient upstream failure (HTTP 503). "
@@ -54,7 +54,7 @@ class ChaosPerturbation(Perturbation):
 
         if self.fault == "renamed_path":
             path = str(args.get("path", args.get("file", "")))
-            key = f"renamed:{path}"
+            key = f"renamed:{ctx.state.current_tool_call_id}"
             if key not in ctx.state.fired and content and not content.lower().startswith("error"):
                 ctx.state.fired.add(key)
                 return (f"FileNotFoundError: [Errno 2] No such file or directory: '{path}'. "

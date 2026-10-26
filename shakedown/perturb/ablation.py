@@ -46,10 +46,9 @@ class AblationPerturbation(Perturbation):
                     matched_tool = True
                     desc = fn.get("description", "") or ""
                     shuffled = _shuffle_sentences(desc, ctx)
-                    if self.mode != "remove" and shuffled == desc and len(
-                            re.findall(r"(?<=[.!?])\s+", desc.strip())) == 0:
+                    if self.mode != "remove" and len(_sentences(desc)) < 2:
                         ctx.state.exposure_reason = (
-                            "tool description has fewer than two sentences"
+                            "tool description shuffle skipped: fewer than two sentences"
                         )
                     fn["description"] = "" if self.mode == "remove" else shuffled
             if not matched_tool:
@@ -61,25 +60,43 @@ class AblationPerturbation(Perturbation):
             new = content.replace(self.chunk_text, "")
             new = re.sub(r"\n{3,}", "\n\n", new).strip()
             return new
-        # Shuffle: rebuild the system message from the chunk blocks that are
-        # present, placing any residual text (e.g. an injected fix line) last.
-        present = [(cid, text) for cid, text in self.all_system_chunks if text and text in content]
-        if len(present) < 2:
+        present = [
+            (cid, text) for cid, text in self.all_system_chunks
+            if text and text in content
+        ]
+        if len(present) < 2 or self.chunk_id not in {cid for cid, _ in present}:
             return content
+        present.sort(key=lambda item: content.index(item[1]))
+        original_index = next(i for i, (cid, _) in enumerate(present) if cid == self.chunk_id)
+        target = present.pop(original_index)
+        destination = ctx.state.rng.choice(
+            [i for i in range(len(present) + 1) if i != original_index]
+        )
+        present.insert(destination, target)
+
+        # Rebuild only the known chunk blocks; residual text (such as a fix
+        # line) remains untouched and in its original trailing position.
         residual = content
-        for _, text in present:
-            residual = residual.replace(text, "")
+        for _, text in self.all_system_chunks:
+            if text:
+                residual = residual.replace(text, "", 1)
         residual = re.sub(r"\n{3,}", "\n\n", residual).strip()
-        ctx.state.rng.shuffle(present)
         blocks = [text for _, text in present]
         if residual:
             blocks.append(residual)
         return "\n\n".join(blocks)
 
 
+def _sentences(text: str) -> list[str]:
+    return [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", text) if sentence.strip()]
+
+
 def _shuffle_sentences(text: str, ctx) -> str:
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+    sentences = _sentences(text)
     if len(sentences) < 2:
         return text
+    original = list(sentences)
     ctx.state.rng.shuffle(sentences)
+    if sentences == original:
+        sentences = sentences[1:] + sentences[:1]
     return " ".join(sentences)

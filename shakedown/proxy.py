@@ -45,6 +45,9 @@ class RunContext:
     store: Store
     pricing: Pricing
     fix_line: str = ""
+    model_name: str | None = None
+    temperature: float | None = None
+    supports_seed: bool = False
     state: RunState = field(init=False)
     inbound_headers: dict = field(default_factory=dict)
     _call_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
@@ -118,6 +121,17 @@ class ProxyServer:
         self.app = self._build_app()
 
     # -- lifecycle ----------------------------------------------------------
+    def preflight(self) -> None:
+        headers = {"Authorization": "Bearer " + self.upstream_api_key}
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                response = client.get(self.upstream_base_url + "/models", headers=headers)
+                response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise RuntimeError(
+                f"model endpoint preflight failed for {self.upstream_base_url}: {exc}"
+            ) from exc
+
     def register(self, ctx: RunContext) -> None:
         with self._lock:
             self.runs[ctx.run_id] = ctx
@@ -261,13 +275,24 @@ class ProxyServer:
             return _error(f"tool-result perturbation failed: {exc}; run is invalid",
                           500, "invalid_run")
         _cap_output_tokens(forwarded)
-        forwarded.setdefault("model", forwarded.get("model", "unknown"))
+        if ctx.model_name:
+            forwarded["model"] = ctx.model_name
+        if ctx.temperature is not None:
+            forwarded["temperature"] = ctx.temperature
+        if ctx.supports_seed:
+            forwarded["seed"] = ctx.state.seed
+        forwarded.setdefault("model", "unknown")
 
         cached = False
         cache_key = ""
-        if float(forwarded.get("temperature") or 0.0) == 0.0:
+        temperature = forwarded.get("temperature")
+        if isinstance(temperature, (int, float)) and temperature == 0.0:
             cache_key = hashlib.sha256(
-                json.dumps(forwarded, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+                json.dumps(
+                    {"run_id": run_id, "payload": forwarded},
+                    sort_keys=True,
+                    ensure_ascii=False,
+                ).encode()).hexdigest()
             with self._cache_lock:
                 hit = self._cache.get(cache_key)
             if hit is not None:
@@ -296,6 +321,7 @@ class ProxyServer:
                 if response.status_code >= 400:
                     self.budget.finish(reservation)
                     ctx.state.errors.append(f"upstream {response.status_code}: {str(body)[:300]}")
+                    ctx.state.invalid = True
                     self.store.append_trace(run_id, {
                         "ts": utc_now(), "event": "upstream_error",
                         "status": response.status_code, "body": body})
@@ -305,6 +331,7 @@ class ProxyServer:
             except Exception as exc:  # noqa: BLE001
                 self.budget.finish(reservation)
                 ctx.state.errors.append(f"upstream exception: {exc}")
+                ctx.state.invalid = True
                 self.store.append_trace(run_id, {
                     "ts": utc_now(), "event": "upstream_exception", "error": str(exc)})
                 return _error(f"upstream request failed: {exc}", 502, "upstream_error")
@@ -327,6 +354,7 @@ class ProxyServer:
             "ts": utc_now(), "event": "response",
             "cached": cached,
             "perturbation": ctx.perturbation.id,
+            **({"seed": ctx.state.seed} if ctx.supports_seed else {}),
             "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
                       "cost_usd": usd},
             "body": body,
@@ -354,9 +382,25 @@ class ProxyServer:
                         ctx, None, None, "target tool returned no textual content"
                     )
                 continue
+            call_id = str(message.get("tool_call_id", ""))
+            if call_id in ctx.state.tool_result_cache:
+                transformed = ctx.state.tool_result_cache[call_id]
+                if transformed != content:
+                    message["content"] = transformed
+                    changed = True
+                    self._record_perturbation(
+                        ctx,
+                        content,
+                        transformed,
+                        "replayed cached tool-result perturbation",
+                    )
+                continue
             if ctx.perturbation.kind == "chaos" and name == ctx.perturbation.tool:
                 ctx.state.exposure_reason = ""
+            ctx.state.current_tool_call_id = call_id
             new_content = ctx.perturbation.apply_tool_result(name, args, content, ctx)
+            ctx.state.current_tool_call_id = ""
+            ctx.state.tool_result_cache[call_id] = new_content
             if ctx.perturbation.kind == "chaos" and name == ctx.perturbation.tool:
                 reason = ctx.state.exposure_reason or "tool result was unchanged"
                 ctx.state.exposure_reason = ""

@@ -141,6 +141,7 @@ def _execute_run(args, cells: list[CellSpec], experiment_id: str, fix_line: str 
 
     proxy = ProxyServer(tasks[0].model.base_url, store, tracker, pricing,
                         upstream_api_key=os.environ.get("MODEL_API_KEY", "local"))
+    proxy.preflight()
     proxy.start()
     t0 = time.time()
     try:
@@ -191,6 +192,8 @@ def _print_status(store: Store, meta: dict) -> None:
           f"(Wilson 95% {base['wilson_text']}, MDE at this n = {base['mde_at_n']} pts)")
     print(f"[cost] {analysis['summary']['runs']} runs, {analysis['summary']['calls']} model calls, "
           f"${analysis['summary']['spend_usd']:.4f}, {analysis['summary']['elapsed_minutes']} min")
+    print(f"[validity] {analysis['summary']['invalid_runs']} invalid runs "
+          f"({analysis['summary']['invalid_rate']:.1%})")
     for cell in analysis["cells"]:
         if cell["n"] == 0:
             continue

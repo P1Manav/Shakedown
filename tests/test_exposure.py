@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import httpx
 import pytest
@@ -6,7 +7,7 @@ import pytest
 from shakedown.cost import BudgetTracker, Pricing
 from shakedown.perturb.ablation import AblationPerturbation
 from shakedown.perturb.chaos import ChaosPerturbation
-from shakedown.perturb.base import Baseline
+from shakedown.perturb.base import Baseline, RunState
 from shakedown.proxy import ProxyServer, RunContext
 from shakedown.store import RunResult, Store
 
@@ -60,6 +61,36 @@ def test_ablation_fails_if_target_chunk_is_missing_from_outgoing_prompt():
             {"messages": [{"role": "system", "content": "Do the requested work."}]},
             type("Context", (), {"state": type("State", (), {"rng": None})()})(),
         )
+
+
+def test_shuffle_moves_only_named_chunk_and_keeps_others_in_order():
+    perturbation = AblationPerturbation(
+        "target",
+        "shuffle",
+        "Target guidance.",
+        "system",
+        None,
+        [
+            ("first", "First guidance."),
+            ("target", "Target guidance."),
+            ("last", "Last guidance."),
+        ],
+    )
+    context = type("Context", (), {"state": RunState("shuffle-one-chunk")})()
+    original = "First guidance.\n\nTarget guidance.\n\nLast guidance."
+
+    shuffled = perturbation.apply_request(
+        {"messages": [{"role": "system", "content": original}]}, context
+    )["messages"][0]["content"]
+    chunks = (
+        "First guidance.", "Target guidance.", "Last guidance."
+    )
+    order = sorted((text for text in chunks if text in shuffled), key=shuffled.index)
+
+    assert order != ["First guidance.", "Target guidance.", "Last guidance."]
+    assert [item for item in order if item != "Target guidance."] == [
+        "First guidance.", "Last guidance."
+    ]
 
 
 def test_request_perturbation_records_applied_diff_in_trace_and_result(tmp_path):
@@ -134,6 +165,54 @@ def test_tool_fault_target_never_called_is_not_exposed(tmp_path):
     )
 
 
+@pytest.mark.parametrize(
+    ("fault", "args", "first"),
+    [
+        ("error_once", {"path": "a.py"}, "original result"),
+        ("renamed_path", {"path": "a.py"}, "original result"),
+        ("stale_file", {"path": "a.py"}, "first file content"),
+        ("empty_result", {"path": "a.py"}, "original result"),
+    ],
+)
+def test_tool_fault_replay_returns_cached_transformation(tmp_path, fault, args, first):
+    store = Store(f"replay-{fault}", tmp_path)
+    proxy = ProxyServer(
+        "https://model.example/v1",
+        store,
+        BudgetTracker(max_calls=5, max_usd=0.01),
+        Pricing(input_per_1m=1.0, output_per_1m=2.0),
+    )
+    perturbation = ChaosPerturbation(fault, "read_file")
+    context = RunContext(
+        run_id=f"run-{fault}",
+        task_id="task",
+        cell_id=fault,
+        perturbation=perturbation,
+        max_calls=5,
+        store=store,
+        pricing=Pricing(input_per_1m=1.0, output_per_1m=2.0),
+    )
+
+    def replay(content):
+        return proxy._apply_tool_faults({
+            "messages": [
+                {"role": "assistant", "tool_calls": [{
+                    "id": "stable-call",
+                    "function": {
+                        "name": "read_file",
+                        "arguments": json.dumps(args),
+                    },
+                }]},
+                {"role": "tool", "tool_call_id": "stable-call", "content": content},
+            ],
+        }, context)["messages"][-1]["content"]
+
+    transformed = replay(first)
+    repeated = replay("a different regenerated result")
+
+    assert transformed == repeated
+
+
 def test_single_sentence_tool_description_shuffle_is_not_exposed(tmp_path):
     store = Store("short-description", tmp_path)
     perturbation = AblationPerturbation(
@@ -154,7 +233,7 @@ def test_single_sentence_tool_description_shuffle_is_not_exposed(tmp_path):
     assert response.status_code == 200
     record = context.state.perturbation_records[0]
     assert record["applied"] is False
-    assert record["reason"] == "tool description has fewer than two sentences"
+    assert record["reason"] == "tool description shuffle skipped: fewer than two sentences"
     assert trace[1]["event"] == "perturbation"
     assert trace[1]["applied"] is False
 

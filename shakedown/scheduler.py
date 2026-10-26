@@ -82,6 +82,7 @@ class CellSummary:
     kind: str
     n: int = 0
     k: int = 0
+    invalid_n: int = 0
     decision: str = "fixed"
     reason: str = ""
     task_counts: dict = field(default_factory=dict)
@@ -106,6 +107,8 @@ class GridRunner:
         self._executor = ThreadPoolExecutor(max_workers=max(1, budget.max_workers))
         self._run_no = 0
         self._total_runs = 0
+        self._invalid_runs = 0
+        self.invalid_rate_limit = 0.20
 
     def _time_exceeded(self) -> bool:
         if (time.time() - self.started) / 60.0 >= self.budget.max_minutes:
@@ -157,7 +160,7 @@ class GridRunner:
                 task_id=task.id, task_name=task.name, cell_id=cell.id,
                 cell_label=cell.label, cell_kind=cell.kind, params=cell.config,
                 started_at=utc_now(), success=False, error=f"runner exception: {exc}",
-                failure_class="other")
+                invalid=True, failure_class="invalid")
             self.runner.store.append_run(result)
             return result
 
@@ -173,8 +176,15 @@ class GridRunner:
             result = future.result()
             collected.append(result)
             self._total_runs += 1
+            if result.invalid:
+                self._invalid_runs += 1
             if self.on_run:
                 self.on_run(result, self._total_runs, self._total_runs)
+        if self._total_runs and self._invalid_runs / self._total_runs > self.invalid_rate_limit:
+            self.stopped_reason = (
+                f"invalid run rate exceeded {self.invalid_rate_limit:.0%} "
+                f"({self._invalid_runs}/{self._total_runs})"
+            )
 
     def run_baseline(self) -> CellSummary:
         cell = self.cells[0]
@@ -189,9 +199,12 @@ class GridRunner:
             self._run_batch(cell, batch, counts, collected)
             remaining -= batch
         for r in collected:
-            summary.n += 1
-            summary.k += int(r.success)
-            summary.task_counts[r.task_id] = summary.task_counts.get(r.task_id, 0) + 1
+            if r.invalid:
+                summary.invalid_n += 1
+            else:
+                summary.n += 1
+                summary.k += int(r.success)
+                summary.task_counts[r.task_id] = summary.task_counts.get(r.task_id, 0) + 1
         summary.reason = self.stopped_reason or "fixed baseline sample"
         self.summaries.append(summary)
         if self.on_cell:
@@ -211,16 +224,18 @@ class GridRunner:
 
             collected: list[RunResult] = []
             counts: dict[str, int] = {}
-            n = k = 0
+            attempted = n = k = 0
             max_n = self.budget.max_runs_per_cell
             min_n = min(self.budget.min_runs_per_cell, max_n)
-            while n < max_n and not self.stopped_reason:
+            while attempted < max_n and not self.stopped_reason:
                 if self._time_exceeded() or self._budget_exceeded():
                     break
-                batch = min(self.budget.batch_size, max_n - n)
+                batch = min(self.budget.batch_size, max_n - attempted)
                 self._run_batch(cell, batch, counts, collected)
-                n = len(collected)
-                k = sum(1 for r in collected if r.success)
+                attempted = len(collected)
+                valid = [r for r in collected if not r.invalid]
+                n = len(valid)
+                k = sum(1 for r in valid if r.success)
                 if self.budget.stop_rule == "sequential" and n >= min_n:
                     looks = max(2, math.ceil(max_n / max(1, self.budget.batch_size)))
                     decision = sequential_decision(
@@ -233,9 +248,12 @@ class GridRunner:
                         break
             summary.n, summary.k = n, k
             for r in collected:
-                summary.task_counts[r.task_id] = summary.task_counts.get(r.task_id, 0) + 1
+                if r.invalid:
+                    summary.invalid_n += 1
+                else:
+                    summary.task_counts[r.task_id] = summary.task_counts.get(r.task_id, 0) + 1
             if summary.decision == "fixed":
-                summary.reason = summary.reason or "reached max N"
+                summary.reason = summary.reason or self.stopped_reason or "reached max N"
             self.summaries.append(summary)
             if self.on_cell:
                 self.on_cell(self.summaries)

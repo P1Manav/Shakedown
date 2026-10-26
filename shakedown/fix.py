@@ -202,6 +202,7 @@ def run_fix(store_dir, cells_to_run: list[str] | None, baseline_n: int, max_minu
     model = tasks[0].model
     proxy = ProxyServer(model.base_url, new_store, tracker, Pricing.from_model(model),
                         upstream_api_key=os.environ.get("MODEL_API_KEY", "local"))
+    proxy.preflight()
     proxy.start()
     try:
         runner = Runner(new_store, proxy, keep_workspaces=keep_workspaces,

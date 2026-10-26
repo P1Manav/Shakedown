@@ -94,6 +94,7 @@ class ModelSpec:
     base_url: str = "http://127.0.0.1:11434/v1"
     name: str = "qwen2.5-coder:7b"
     temperature: float = 0.7
+    supports_seed: bool = False
     price_input_per_1m: float = 0.0
     price_output_per_1m: float = 0.0
 
@@ -166,6 +167,7 @@ def load_task(path: str | Path, budget_override: dict | None = None) -> TaskSpec
         base_url=model_raw.get("base_url") or os.environ.get("MODEL_BASE_URL", ModelSpec.base_url),
         name=model_raw.get("name") or os.environ.get("MODEL_NAME", ModelSpec.name),
         temperature=float(model_raw.get("temperature", 0.7)),
+        supports_seed=bool(model_raw.get("supports_seed", False)),
         price_input_per_1m=float(os.environ.get("PRICE_INPUT_PER_1M",
                                                 model_raw.get("price_input_per_1m", 0))),
         price_output_per_1m=float(os.environ.get("PRICE_OUTPUT_PER_1M",

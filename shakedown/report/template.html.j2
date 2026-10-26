@@ -186,6 +186,7 @@
       <aside class="panel hero-side" aria-label="Run metrics">
         <div class="mini-stat"><span>Total runs</span><strong>{{ a.summary.runs }}</strong></div>
         <div class="mini-stat"><span>Invalid runs</span><strong>{{ a.summary.invalid_runs }}</strong></div>
+        <div class="mini-stat"><span>Tampered runs</span><strong>{{ a.summary.tampering_runs }}</strong></div>
         <div class="mini-stat"><span>Model calls</span><strong>{{ a.summary.calls }}</strong></div>
         <div class="mini-stat"><span>Tokens</span><strong>{{ "{:,}".format(a.summary.tokens) }}</strong></div>
         <div class="mini-stat"><span>Estimated spend</span><strong>${{ "%.4f"|format(a.summary.spend_usd) }}</strong></div>
