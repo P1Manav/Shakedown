@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "scipy>=1.10", "statsmodels>=0.14", "ruff>=0.5"]
 
 [project.scripts]
 shakedown = "shakedown.cli:main"
