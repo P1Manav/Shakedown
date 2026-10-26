@@ -243,6 +243,84 @@ def two_proportion_test(k_treat: int, n_treat: int, k_ctrl: int, n_ctrl: int,
                       ci_low, ci_high, min(1.0, p_value), "z_pooled", z)
 
 
+def stratified_binary_comparison(
+    treatment: dict[str, tuple[int, int]],
+    control: dict[str, tuple[int, int]],
+    z: float = Z_95,
+) -> Comparison | None:
+    """CMH test and precision-weighted risk difference over matched task strata."""
+    if not math.isfinite(z) or z <= 0:
+        raise ValueError("z must be a finite positive value")
+    strata = []
+    for task_id in sorted(set(treatment) & set(control)):
+        k_t, n_t = treatment[task_id]
+        k_c, n_c = control[task_id]
+        _validate_binomial_count(k_t, n_t)
+        _validate_binomial_count(k_c, n_c)
+        if n_t == 0 or n_c == 0:
+            continue
+        strata.append((k_t, n_t, k_c, n_c))
+    if not strata:
+        return None
+
+    observed_minus_expected = 0.0
+    cmh_variance = 0.0
+    weights = []
+    weighted_differences = []
+    interval_lows = []
+    interval_highs = []
+    for k_t, n_t, k_c, n_c in strata:
+        failed_t, failed_c = n_t - k_t, n_c - k_c
+        total = n_t + n_c
+        expected = n_t * (k_t + k_c) / total
+        observed_minus_expected += k_t - expected
+        if total > 1:
+            cmh_variance += (
+                n_t * n_c * (k_t + k_c) * (failed_t + failed_c)
+                / (total * total * (total - 1))
+            )
+        weight = n_t * n_c / total
+        difference = k_t / n_t - k_c / n_c
+        stratum_low, stratum_high = newcombe_difference_interval(
+            k_t, n_t, k_c, n_c, z
+        )
+        weights.append(weight)
+        weighted_differences.append(weight * difference)
+        interval_lows.append(weight * stratum_low)
+        interval_highs.append(weight * stratum_high)
+
+    weight_sum = sum(weights)
+    delta = sum(weighted_differences) / weight_sum
+    ci_low = max(-1.0, sum(interval_lows) / weight_sum)
+    ci_high = min(1.0, sum(interval_highs) / weight_sum)
+    if cmh_variance:
+        statistic = max(0.0, abs(observed_minus_expected) - 0.5) ** 2 / cmh_variance
+        p_value = math.erfc(math.sqrt(statistic / 2.0))
+        signed_z = math.copysign(math.sqrt(statistic), observed_minus_expected)
+    else:
+        p_value = 0.0 if observed_minus_expected else 1.0
+        signed_z = math.copysign(math.inf, observed_minus_expected) if observed_minus_expected else 0.0
+
+    k_treat = sum(row[0] for row in strata)
+    n_treat = sum(row[1] for row in strata)
+    k_ctrl = sum(row[2] for row in strata)
+    n_ctrl = sum(row[3] for row in strata)
+    return Comparison(
+        k_treat=k_treat,
+        n_treat=n_treat,
+        k_ctrl=k_ctrl,
+        n_ctrl=n_ctrl,
+        p_treat=k_treat / n_treat,
+        p_ctrl=k_ctrl / n_ctrl,
+        delta=delta,
+        ci_low=ci_low,
+        ci_high=ci_high,
+        p_value=min(1.0, p_value),
+        method="cochran_mantel_haenszel",
+        z=signed_z,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Minimum detectable effect
 # ---------------------------------------------------------------------------

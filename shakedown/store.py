@@ -26,6 +26,7 @@ class RunResult:
     cell_id: str
     cell_label: str
     cell_kind: str                 # baseline | ablation | chaos | noise
+    replicate: int = -1
     params: dict = field(default_factory=dict)
     started_at: str = ""
     duration_s: float = 0.0

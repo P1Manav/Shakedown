@@ -16,6 +16,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 
 from shakedown.claims import detect_claim
@@ -147,10 +148,11 @@ class Runner:
     def next_run_id(self) -> str:
         with self._lock:
             self._counter += 1
-            return f"run-{self._counter:05d}"
+            return f"run-{uuid.uuid4().hex}"
 
     def run(self, task: TaskSpec, cell_id: str, cell_label: str, cell_kind: str,
-            perturbation: Perturbation, params: dict | None = None) -> RunResult:
+            perturbation: Perturbation, params: dict | None = None,
+            replicate: int = -1) -> RunResult:
         run_id = self.next_run_id()
         workdir = self.work_root / run_id
         if workdir.exists():
@@ -220,7 +222,8 @@ class Runner:
         result = RunResult(
             run_id=run_id, experiment_id=self.store.experiment_id,
             task_id=task.id, task_name=task.name, cell_id=cell_id,
-            cell_label=cell_label, cell_kind=cell_kind, params=params or {},
+            cell_label=cell_label, cell_kind=cell_kind, replicate=replicate,
+            params=params or {},
             started_at=started, duration_s=round(duration, 3), success=success,
             invalid=stats.invalid,
             tamper_detected=tamper_detected,

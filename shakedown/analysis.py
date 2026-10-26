@@ -14,6 +14,7 @@ from shakedown.stats import (
     minimum_detectable_effect,
     norm_ppf,
     newcombe_difference_interval,
+    stratified_binary_comparison,
     two_proportion_test,
     wilson_interval,
 )
@@ -160,6 +161,8 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         k = sum(1 for r in group if r["success"])
         verdict, reason = "not-run", "not run (budget or wall-clock cap)"
         comparison = None
+        stratified = None
+        label_comparison = None
         mde = minimum_detectable_effect(base_rate, max(1, n), n0, family_alpha)
         comparison_data = None
         if n:
@@ -169,6 +172,25 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             comparison_data["ci_low"] = ci_low
             comparison_data["ci_high"] = ci_high
             mde = minimum_detectable_effect(base_rate, n, n0, family_alpha)
+            treatment_by_task = {}
+            for run in group:
+                entry = treatment_by_task.setdefault(run["task_id"], [0, 0])
+                entry[0] += int(bool(run.get("success")))
+                entry[1] += 1
+            control_by_task = {}
+            for run in baseline:
+                entry = control_by_task.setdefault(run["task_id"], [0, 0])
+                entry[0] += int(bool(run.get("success")))
+                entry[1] += 1
+            stratified = stratified_binary_comparison(
+                {task_id: tuple(counts) for task_id, counts in treatment_by_task.items()},
+                {task_id: tuple(counts) for task_id, counts in control_by_task.items()},
+                z=family_z,
+            )
+            if stratified:
+                label_comparison = stratified
+            else:
+                label_comparison = comparison
         raw_cells.append({
             "id": cid, "label": label, "kind": kind, "params": params,
             "n": n, "k": k, "invalid_runs": sum(
@@ -178,10 +200,22 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             "rate": (k / n) if n else 0.0,
             "exposure": _exposure_block(group, k0, n0, family_z),
             "comparison": comparison_data,
+            "stratified_comparison": stratified.as_dict() if stratified else None,
+            "label_driven_by": (
+                "stratified" if stratified else "pooled_fallback" if comparison else "none"
+            ),
+            "label_comparison": label_comparison.as_dict() if label_comparison else None,
             "mde": mde, "claims": aggregate_claims(group),
             "taxonomy": aggregate_taxonomy(all_by_cell.get(cid, [])),
             "per_task": _per_task(group),
-            "_raw": comparison.p_value if comparison else 1.0,
+            "assigned_per_task": {
+                task_id: sum(1 for run in all_by_cell.get(cid, [])
+                             if run["task_id"] == task_id)
+                for task_id in sorted({
+                    run["task_id"] for run in all_by_cell.get(cid, [])
+                })
+            },
+            "_raw": label_comparison.p_value if label_comparison else 1.0,
         })
 
     p_values = [c["_raw"] for c in raw_cells]
@@ -194,12 +228,14 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         if cell["n"] == 0:
             adj, rej = 1.0, False
         cell["p_raw"] = cell["_raw"]
+        cell["p_raw_pooled"] = (cell["comparison"] or {}).get("p_value", 1.0)
         cell["p_adjusted"] = adj
         cell["significant_raw"] = cell["_raw"] < alpha
+        cell["significant_raw_pooled"] = cell["p_raw_pooled"] < alpha
         cell["significant"] = bool(rej)
-        if cell["n"] and cell["comparison"]:
+        if cell["n"] and cell["label_comparison"]:
             from shakedown.stats import Comparison
-            cmp_obj = Comparison(**cell["comparison"])
+            cmp_obj = Comparison(**cell["label_comparison"])
             verdict, reason = _label(cmp_obj, adj, alpha, meaningful_drop, cell["n"], cell["mde"])
             cell["verdict"] = verdict
             cell["reason"] = reason
@@ -207,10 +243,12 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             cell["verdict"] = verdict
             cell["reason"] = reason
         cell["mde_points"] = round(cell["mde"] * 100, 1)
-        cell["delta_points"] = round((cell["comparison"] or {}).get("delta", 0.0) * 100, 1)
+        cell["delta_points"] = round(
+            (cell["label_comparison"] or {}).get("delta", 0.0) * 100, 1
+        )
         cell["ci_points"] = [
-            round((cell["comparison"] or {}).get("ci_low", -1.0) * 100, 1),
-            round((cell["comparison"] or {}).get("ci_high", 1.0) * 100, 1),
+            round((cell["label_comparison"] or {}).get("ci_low", -1.0) * 100, 1),
+            round((cell["label_comparison"] or {}).get("ci_high", 1.0) * 100, 1),
         ]
         cell["cost"] = _cost_block(
             by_cell.get(cell["id"], []), baseline_cost_per_success, base_rate,
@@ -279,6 +317,10 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
                 "comparison": "intent-to-treat: all valid runs assigned to the cell",
                 "exposure": "runs with an observed perturbation diff, compared with baseline",
             },
+            "label_driven_by": (
+                "Cochran-Mantel-Haenszel task-stratified comparison when matched task strata "
+                "exist; pooled two-proportion result is an explicit fallback otherwise"
+            ),
             "family_confidence": 1.0 - family_alpha,
             "correction": "Holm-Bonferroni" if correction == "holm" else "Benjamini-Hochberg",
             "corrections_applied_across": len(raw_cells),

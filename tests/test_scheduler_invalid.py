@@ -46,9 +46,9 @@ def test_runner_exceptions_are_invalid_and_abort_after_invalid_rate_exceeds_limi
 
     summaries = grid.run()
 
-    assert grid.stopped_reason == "invalid run rate exceeded 20% (4/4)"
+    assert grid.stopped_reason == "invalid run rate exceeded 20% (2/2)"
     assert summaries[0].n == 0
-    assert summaries[0].invalid_n == 4
-    assert summaries[1].skipped is True
+    assert summaries[0].invalid_n == 1
+    assert summaries[1].invalid_n == 1
     assert all(run["invalid"] and run["failure_class"] == "invalid"
                for run in store.load_runs())

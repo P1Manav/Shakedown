@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -149,16 +150,17 @@ class GridRunner:
                 merged[task.id] = (task, n)
         return list(merged.values())
 
-    def _execute(self, task: TaskSpec, cell: CellSpec) -> RunResult:
+    def _execute(self, task: TaskSpec, cell: CellSpec, replicate: int = -1) -> RunResult:
         try:
             perturbation = make_perturbation(cell, task)
             return self.runner.run(task, cell.id, cell.label, cell.kind,
-                                   perturbation, params=cell.config)
+                                   perturbation, params=cell.config, replicate=replicate)
         except Exception as exc:  # noqa: BLE001
             result = RunResult(
                 run_id=self.runner.next_run_id(), experiment_id=self.runner.store.experiment_id,
                 task_id=task.id, task_name=task.name, cell_id=cell.id,
                 cell_label=cell.label, cell_kind=cell.kind, params=cell.config,
+                replicate=replicate,
                 started_at=utc_now(), success=False, error=f"runner exception: {exc}",
                 invalid=True, failure_class="invalid")
             self.runner.store.append_run(result)
@@ -261,11 +263,155 @@ class GridRunner:
 
     def run(self) -> list[CellSummary]:
         try:
-            self.run_baseline()
-            self.run_cells()
+            self._run_interleaved()
         finally:
             self._executor.shutdown(wait=True)
         return self.summaries
+
+    def _run_interleaved(self) -> None:
+        baseline = self.cells[0]
+        perturbation_cells = self.cells[1:]
+        existing = self.runner.store.load_runs()
+        by_cell: dict[str, list[dict]] = {cell.id: [] for cell in self.cells}
+        completed: set[tuple[str, str, int]] = set()
+        legacy_replicates: dict[tuple[str, str], int] = {}
+        for row in existing:
+            cell_id = row.get("cell_id")
+            if cell_id not in by_cell:
+                continue
+            task_id = row.get("task_id", "")
+            replicate = row.get("replicate", -1)
+            if not isinstance(replicate, int) or replicate < 0:
+                key = (cell_id, task_id)
+                replicate = legacy_replicates.get(key, 0)
+                while (cell_id, task_id, replicate) in completed:
+                    replicate += 1
+                legacy_replicates[key] = replicate + 1
+            completed.add((cell_id, task_id, replicate))
+            by_cell[cell_id].append(row)
+        self._total_runs = len(existing)
+        self._invalid_runs = sum(1 for row in existing if row.get("invalid", False))
+        rng = random.Random(self.runner.store.experiment_id)
+        stopped_cells: set[str] = set()
+        decisions: dict[str, tuple[str, str]] = {}
+        max_replicates = max(
+            self.budget.baseline_runs,
+            self.budget.max_runs_per_cell if perturbation_cells else 0,
+        )
+        max_looks = max(
+            2,
+            math.ceil(self.budget.max_runs_per_cell / max(1, self.budget.batch_size)),
+        )
+
+        for replicate in range(max_replicates):
+            if self.stopped_reason:
+                break
+            if self._time_exceeded() or self._budget_exceeded():
+                break
+            task = self.tasks[replicate % len(self.tasks)]
+            block: list[tuple[TaskSpec, CellSpec, int]] = []
+            if replicate < self.budget.baseline_runs and (
+                baseline.id, task.id, replicate
+            ) not in completed:
+                block.append((task, baseline, replicate))
+            for cell in perturbation_cells:
+                if cell.id in stopped_cells or replicate >= self.budget.max_runs_per_cell:
+                    continue
+                if (cell.id, task.id, replicate) not in completed:
+                    block.append((task, cell, replicate))
+            rng.shuffle(block)
+            futures = [
+                self._executor.submit(self._execute, run_task, cell, run_replicate)
+                for run_task, cell, run_replicate in block
+            ]
+            for future in as_completed(futures):
+                result = future.result()
+                by_cell[result.cell_id].append(result.to_dict())
+                completed.add((result.cell_id, result.task_id, result.replicate))
+                self._total_runs += 1
+                if result.invalid:
+                    self._invalid_runs += 1
+                if self.on_run:
+                    self.on_run(result, self._total_runs, self._total_runs)
+            if self._total_runs and self._invalid_runs / self._total_runs > self.invalid_rate_limit:
+                self.stopped_reason = (
+                    f"invalid run rate exceeded {self.invalid_rate_limit:.0%} "
+                    f"({self._invalid_runs}/{self._total_runs})"
+                )
+                break
+
+            valid_baseline = [r for r in by_cell[baseline.id] if not r.get("invalid", False)]
+            n0 = len(valid_baseline)
+            k0 = sum(1 for row in valid_baseline if row.get("success"))
+            for cell in perturbation_cells:
+                runs = by_cell[cell.id]
+                valid = [r for r in runs if not r.get("invalid", False)]
+                if (self.budget.stop_rule == "sequential"
+                        and n0 > 0
+                        and len(valid) >= min(self.budget.min_runs_per_cell,
+                                              self.budget.max_runs_per_cell)):
+                    decision = sequential_decision(
+                        sum(1 for row in valid if row.get("success")),
+                        len(valid),
+                        k0,
+                        n0,
+                        alpha=self.budget.alpha,
+                        max_looks=max_looks,
+                        meaningful_drop=self.budget.meaningful_drop,
+                        min_runs=min(self.budget.min_runs_per_cell,
+                                     self.budget.max_runs_per_cell),
+                        look=max(1, len(valid) // max(1, self.budget.batch_size)),
+                    )
+                    decisions[cell.id] = (decision.decision, decision.reason)
+                    if decision.decision.startswith("stop"):
+                        stopped_cells.add(cell.id)
+
+            self.summaries = self._build_summaries(
+                by_cell, stopped_cells, decisions
+            )
+            if self.on_cell:
+                self.on_cell(self.summaries)
+
+        self.summaries = self._build_summaries(by_cell, stopped_cells, decisions)
+        if self.on_cell:
+            self.on_cell(self.summaries)
+
+    def _build_summaries(self, by_cell: dict[str, list[dict]],
+                         stopped_cells: set[str],
+                         decisions: dict[str, tuple[str, str]]) -> list[CellSummary]:
+        summaries = []
+        for cell in self.cells:
+            rows = by_cell[cell.id]
+            valid = [row for row in rows if not row.get("invalid", False)]
+            decision, reason = decisions.get(cell.id, ("fixed", ""))
+            summary = CellSummary(
+                id=cell.id,
+                label=cell.label,
+                kind=cell.kind,
+                n=len(valid),
+                k=sum(1 for row in valid if row.get("success")),
+                invalid_n=len(rows) - len(valid),
+                decision=decision,
+                reason=reason,
+                task_counts={
+                    task.id: sum(1 for row in valid if row.get("task_id") == task.id)
+                    for task in self.tasks
+                    if any(row.get("task_id") == task.id for row in valid)
+                },
+            )
+            target = (self.budget.baseline_runs if cell.id == "baseline"
+                      else self.budget.max_runs_per_cell)
+            if cell.id in stopped_cells:
+                summary.reason = reason or "sequential rule stopped sampling"
+            elif self.stopped_reason:
+                summary.reason = self.stopped_reason
+            elif len(rows) < target:
+                summary.reason = "resume or schedule incomplete"
+                summary.skipped = len(rows) == 0
+            else:
+                summary.reason = reason or "reached max N"
+            summaries.append(summary)
+        return summaries
 
     @property
     def elapsed_minutes(self) -> float:

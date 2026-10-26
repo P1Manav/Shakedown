@@ -125,3 +125,45 @@ def test_one_run_cost_spike_does_not_create_fix_first_finding(tmp_path):
     assert analysis["cells"][0]["cost"]["cost_ratio"] == 3.0
     assert analysis["cells"][0]["cost"]["cost_risk"] is False
     assert analysis["fix_first"] == []
+
+
+def test_analysis_reports_pooled_and_task_stratified_comparisons(tmp_path):
+    store = Store("stratified", tmp_path)
+    cells = [
+        {"id": "baseline", "label": "Baseline", "kind": "baseline", "config": {}},
+        {"id": "noise:test", "label": "Noise", "kind": "noise", "config": {}},
+    ]
+    meta = {"budget": {}, "cells": cells, "task_chunks": {}}
+    store.save_meta(meta)
+    outcomes = {
+        ("easy", "baseline"): 9,
+        ("easy", "noise:test"): 8,
+        ("hard", "baseline"): 1,
+        ("hard", "noise:test"): 2,
+    }
+    run_number = 0
+    for (task_id, cell_id), successes in outcomes.items():
+        for index in range(10):
+            run_number += 1
+            store.append_run(RunResult(
+                run_id=f"run-{run_number}",
+                experiment_id="stratified",
+                task_id=task_id,
+                task_name=task_id.title(),
+                cell_id=cell_id,
+                cell_label="Baseline" if cell_id == "baseline" else "Noise",
+                cell_kind="baseline" if cell_id == "baseline" else "noise",
+                success=index < successes,
+            ))
+
+    analysis = build_analysis(store, meta)
+    cell = analysis["cells"][0]
+
+    assert cell["comparison"]["delta"] == 0.0
+    assert abs(cell["stratified_comparison"]["delta"]) < 1e-12
+    assert cell["label_driven_by"] == "stratified"
+    assert cell["per_task"]["easy"]["rate"] == 0.8
+    assert cell["per_task"]["hard"]["rate"] == 0.2
+    assert cell["assigned_per_task"] == {"easy": 10, "hard": 10}
+    assert cell["p_raw_pooled"] == cell["comparison"]["p_value"]
+    assert "Cochran-Mantel-Haenszel" in analysis["methods"]["label_driven_by"]
