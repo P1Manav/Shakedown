@@ -75,17 +75,17 @@ class ChaosConfig:
 
 @dataclass(frozen=True)
 class BudgetSpec:
-    baseline_runs: int = 40
-    min_runs_per_cell: int = 10
-    max_runs_per_cell: int = 30
+    baseline_runs: int = 60
+    min_runs_per_cell: int = 16
+    max_runs_per_cell: int = 40
     alpha: float = 0.05
     correction: str = "holm"
     stop_rule: str = "sequential"
     meaningful_drop: float = 0.25
-    max_total_calls: int = 6000
+    max_total_calls: int = 8000
     max_usd: float = 15.0
     max_workers: int = 3
-    max_minutes: float = 180.0
+    max_minutes: float = 60.0
     batch_size: int = 4
 
 

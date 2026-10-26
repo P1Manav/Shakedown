@@ -189,7 +189,7 @@ def _print_status(store: Store, meta: dict) -> None:
     base = analysis["baseline"]
     print("")
     print(f"[baseline] {base['k']}/{base['n']} = {_fmt_pct(base['rate'])} "
-          f"(Wilson 95% {base['wilson_text']}, MDE at this n = {base['mde_at_n']} pts)")
+          f"(Wilson 95% {base['wilson_text']}, unadjusted MDE at this n = {base['mde_at_n']} pts)")
     print(f"[cost] {analysis['summary']['runs']} runs, {analysis['summary']['calls']} model calls, "
           f"${analysis['summary']['spend_usd']:.4f}, {analysis['summary']['elapsed_minutes']} min")
     print(f"[validity] {analysis['summary']['invalid_runs']} invalid runs "
@@ -199,7 +199,8 @@ def _print_status(store: Store, meta: dict) -> None:
             continue
         sig = "*" if cell["significant"] else " "
         print(f"  {sig} {cell['label']:<34} {cell['k']:>2}/{cell['n']:<2} "
-              f"{cell['delta_points']:+6.1f} pts  p_adj={cell['p_adjusted']:.3f}  "
+              f"{cell['delta_points']:+6.1f} pts  p_raw={cell['p_raw']:.3f} "
+              f"p_adj({cell['p_adjustment_family']})={cell['p_adjusted']:.3f}  "
               f"{cell['verdict']}: {cell['reason']}")
     if analysis["fix_first"]:
         top = analysis["fix_first"][0]
@@ -354,9 +355,11 @@ def cmd_demo(args) -> int:
     args.no_ablation = False
     args.no_chaos = False
     if args.runs is None:
-        args.runs = 24
+        args.runs = 60
     if args.max_runs is None:
-        args.max_runs = 24
+        args.max_runs = 40
+    if args.min_runs is None:
+        args.min_runs = 16
     args.experiment = args.experiment or new_experiment_id("demo")
     if cmd_selftest(args) != 0:
         print("[demo] task self-test failed; aborting")

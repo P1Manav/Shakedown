@@ -179,7 +179,7 @@
           <div class="baseline-meta"><strong>Baseline pass rate</strong>
             {{ a.baseline.k }} of {{ a.baseline.n }} runs · Wilson 95% CI
             {{ "%.0f"|format(a.baseline.wilson[0] * 100) }}–{{ "%.0f"|format(a.baseline.wilson[1] * 100) }}%<br>
-            MDE at this sample size: {{ a.baseline.mde_at_n }} points
+            Unadjusted MDE at this sample size: {{ a.baseline.mde_at_n }} points
           </div>
         </div>
       </div>
@@ -197,7 +197,7 @@
     <section aria-labelledby="heatmap-title">
       <div class="section-head">
         <div><h2 id="heatmap-title">Sensitivity heatmap</h2>
-          <p>Success under each controlled perturbation. Significance uses {{ a.summary.correction }} correction.</p></div>
+          <p>Success under each controlled perturbation. {{ a.summary.correction }}.</p></div>
         <div class="legend"><span class="lg-critical">Critical</span><span class="lg-clear">No meaningful effect</span>
           <span class="lg-open">Inconclusive</span></div>
       </div>
@@ -211,17 +211,18 @@
             <div class="fill" style="width: {{ "%.1f"|format(c.rate * 100) }}%"></div></div>
           <div class="cell-metrics">
             <div><span>Δ pass rate</span><strong>{{ "%+.1f"|format(c.delta_points) }} pts</strong></div>
-            <div><span>Adjusted p</span><strong>{{ "%.3f"|format(c.p_adjusted) }}</strong></div>
-            <div><span>MDE</span><strong>{{ c.mde_points }} pts</strong></div>
+            <div><span>Raw p</span><strong>{{ "%.3f"|format(c.p_raw) }}</strong></div>
+            <div><span>Adjusted p ({{ c.p_adjustment_family }})</span><strong>{{ "%.3f"|format(c.p_adjusted) }}</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>{{ c.mde_points }} pts</strong></div>
             <div><span>Exposure</span><strong>{% if c.exposure.exposure_rate is not none %}{{ "%.0f"|format(c.exposure.exposure_rate * 100) }}%{% else %}n/a{% endif %}</strong></div>
           </div>
-          <p class="cell-note">{{ c.reason }} · familywise Δ CI {{ c.ci_points[0] }} to {{ c.ci_points[1] }} pts</p>
+          <p class="cell-note">{{ c.reason }} · within-family Δ CI {{ c.ci_points[0] }} to {{ c.ci_points[1] }} pts</p>
           <p class="cell-note">Label driven by {{ c.label_driven_by }} comparison:
             pooled Δ {% if c.comparison %}{{ "%+.1f"|format(c.comparison.delta * 100) }} pts,
-            p={{ "%.3f"|format(c.p_raw_pooled) }}{% else %}n/a{% endif %};
+            raw p={{ "%.3f"|format(c.p_raw_pooled) }}{% else %}n/a{% endif %};
             stratified {% if c.stratified_comparison %}
             Δ {{ "%+.1f"|format(c.stratified_comparison.delta * 100) }} pts,
-            p={{ "%.3f"|format(c.stratified_comparison.p_value) }}
+            raw p={{ "%.3f"|format(c.stratified_comparison.p_value) }}
             across {{ c.per_task|length }} task strata{% else %}n/a{% endif %}.</p>
           {% if c.per_task %}
           <p class="cell-note">Per-task valid pass rates:
@@ -308,10 +309,12 @@
 
     <section class="panel method">
       <strong>Method</strong> · {{ a.methods.interval }} · {{ a.methods.test }} · {{ a.methods.difference_ci }}.
-      {{ a.methods.correction }} correction across {{ a.methods.corrections_applied_across }} perturbation cells.
-      Familywise interval confidence: {{ (a.methods.family_confidence * 100)|round(2) }}%.
+      {{ a.methods.correction }}:
+      {% for family, size in a.methods.family_sizes.items() %}
+      {{ family }} ({{ size }} cells, {{ (a.methods.per_look_confidence_by_family[family] * 100)|round(2) }}% per-look CI confidence){% if not loop.last %}; {% endif %}
+      {% endfor %}.
       “Inconclusive” means the interval still includes a meaningful effect (±{{ (a.methods.meaningful_drop * 100)|round|int }} points);
-      it does not mean “no effect.” MDE assumes 80% power at Bonferroni-adjusted α.
+      it does not mean “no effect.” Cell MDE assumes 80% power at within-family, sequentially spent α; baseline MDE is unadjusted.
     </section>
     <footer class="foot"><span>Shakedown · Sensitivity, not certainty.</span>
       <span>Generated {{ a.generated_at }} · {{ a.summary.elapsed_minutes }} min elapsed</span></footer>

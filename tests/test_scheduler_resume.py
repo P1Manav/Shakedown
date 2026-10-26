@@ -111,3 +111,60 @@ def test_runner_ids_are_unique_across_resumed_runner_instances(tmp_path):
     second = Runner(store, proxy=SimpleNamespace())
 
     assert first.next_run_id() != second.next_run_id()
+
+
+def test_sequential_scheduler_spends_more_runs_on_ambiguous_cells(tmp_path):
+    class OutcomeRunner(RecordingRunner):
+        def run(self, task, cell_id, cell_label, cell_kind, perturbation,
+                params=None, replicate=-1):
+            self.calls.append((cell_id, task.id, replicate))
+            success = (
+                replicate % 2 == 0
+                if cell_id in {"baseline", "noise:ambiguous"}
+                else False
+            )
+            result = RunResult(
+                run_id=self.next_run_id(),
+                experiment_id=self.store.experiment_id,
+                task_id=task.id,
+                task_name=task.name,
+                cell_id=cell_id,
+                cell_label=cell_label,
+                cell_kind=cell_kind,
+                replicate=replicate,
+                success=success,
+            )
+            self.store.append_run(result)
+            return result
+
+    store = Store("sequential-allocation", tmp_path)
+    task = SimpleNamespace(id="task", name="Task")
+    budget = BudgetSpec(
+        baseline_runs=20,
+        min_runs_per_cell=8,
+        max_runs_per_cell=20,
+        batch_size=4,
+        max_workers=1,
+        max_minutes=1,
+        max_total_calls=100,
+        max_usd=1,
+        stop_rule="sequential",
+        meaningful_drop=0.1,
+    )
+    cells = [
+        CellSpec("baseline", "Baseline", "baseline"),
+        CellSpec("noise:clear", "Clear effect", "noise", {"mode": "clear"}),
+        CellSpec("noise:ambiguous", "Ambiguous", "noise", {"mode": "ambiguous"}),
+    ]
+    runner = OutcomeRunner(store)
+    summaries = GridRunner(
+        runner,
+        [task],
+        cells,
+        budget,
+        BudgetTracker(max_calls=100, max_usd=1),
+    ).run()
+    counts = {summary.id: summary.n for summary in summaries}
+
+    assert counts["noise:clear"] < counts["noise:ambiguous"]
+    assert counts["noise:ambiguous"] == 20

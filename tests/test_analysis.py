@@ -1,5 +1,5 @@
 from shakedown.analysis import _label, build_analysis
-from shakedown.stats import minimum_detectable_effect, two_proportion_test
+from shakedown.stats import holm, minimum_detectable_effect, two_proportion_test
 from shakedown.store import RunResult, Store
 
 
@@ -85,8 +85,8 @@ def test_dead_weight_requires_familywise_interval_to_rule_out_both_directions(tm
 
     analysis = build_analysis(store, meta)
 
-    assert analysis["methods"]["family_confidence"] == 0.9975
-    assert analysis["methods"]["corrections_applied_across"] == 20
+    assert analysis["methods"]["per_look_confidence_by_family"] == {"chaos": 0.99975}
+    assert analysis["methods"]["corrections_applied_by_family"] == {"chaos": 20}
     assert analysis["cells"][0]["verdict"] == "inconclusive"
     assert analysis["cells"][0]["mde"] > minimum_detectable_effect(0.5, 40, 40, 0.05)
 
@@ -167,3 +167,61 @@ def test_analysis_reports_pooled_and_task_stratified_comparisons(tmp_path):
     assert cell["assigned_per_task"] == {"easy": 10, "hard": 10}
     assert cell["p_raw_pooled"] == cell["comparison"]["p_value"]
     assert "Cochran-Mantel-Haenszel" in analysis["methods"]["label_driven_by"]
+
+
+def test_multiple_testing_and_mde_are_adjusted_within_cell_families(tmp_path):
+    store = Store("family-corrections", tmp_path)
+    cells = [
+        {"id": "baseline", "label": "Baseline", "kind": "baseline", "config": {}},
+        {"id": "ablation:remove:a", "label": "Remove a", "kind": "ablation", "config": {}},
+        {"id": "ablation:remove:b", "label": "Remove b", "kind": "ablation", "config": {}},
+        {"id": "chaos:error", "label": "Error", "kind": "chaos", "config": {}},
+    ]
+    meta = {
+        "budget": {"alpha": 0.05, "correction": "holm"},
+        "cells": cells,
+        "task_chunks": {},
+    }
+    store.save_meta(meta)
+    outcomes = {
+        "baseline": 50,
+        "ablation:remove:a": 20,
+        "ablation:remove:b": 50,
+        "chaos:error": 30,
+    }
+    run_number = 0
+    for cell in cells:
+        for index in range(100):
+            run_number += 1
+            store.append_run(RunResult(
+                run_id=f"run-{run_number}",
+                experiment_id="family-corrections",
+                task_id="task",
+                task_name="Task",
+                cell_id=cell["id"],
+                cell_label=cell["label"],
+                cell_kind=cell["kind"],
+                success=index < outcomes[cell["id"]],
+            ))
+
+    analysis = build_analysis(store, meta)
+
+    assert analysis["methods"]["family_sizes"] == {"ablation": 2, "chaos": 1}
+    assert analysis["methods"]["family_alpha"] == {"ablation": 0.025, "chaos": 0.05}
+    assert analysis["methods"]["mde_alpha_by_family"] == {
+        "ablation": 0.0025, "chaos": 0.005
+    }
+    cells_by_kind = {
+        kind: [cell for cell in analysis["cells"] if cell["kind"] == kind]
+        for kind in ("ablation", "chaos")
+    }
+    for kind, family_cells in cells_by_kind.items():
+        expected, _ = holm([cell["p_raw"] for cell in family_cells], alpha=0.05)
+        assert [cell["p_adjusted"] for cell in family_cells] == expected
+        assert all(cell["family_alpha"] == analysis["methods"]["family_alpha"][kind]
+                   for cell in family_cells)
+        assert all(cell["p_adjustment_family"] == kind for cell in family_cells)
+    assert all(
+        cell["mde"] == minimum_detectable_effect(0.5, 100, 100, alpha=0.0025)
+        for cell in cells_by_kind["ablation"]
+    )

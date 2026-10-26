@@ -7,7 +7,7 @@ Shakedown is a sensitivity profiler for AI agents. Give it an agent command, a t
 - **Reliability:** repeated baseline runs with Wilson confidence intervals and trace-based first-divergence summaries.
 - **Context ablation:** remove or shuffle named prompt and tool-description chunks.
 - **Chaos testing:** inject truncated, empty, malformed, transient-error, stale-file, and renamed-path tool results.
-- **Statistical controls:** Fisher exact fallback for small samples, Holm or Benjamini–Hochberg correction, Bonferroni familywise confidence intervals, adjusted minimum detectable effects, and conservative sequential stopping.
+- **Statistical controls:** Fisher exact fallback for small samples, Holm or Benjamini–Hochberg correction within ablation/chaos/noise families, family-adjusted confidence intervals and minimum detectable effects, and sequential stopping that allocates later runs to ambiguous cells.
 - **Operational metrics:** model calls, tokens, estimated spend, steps, false success claims, and rule-based failure categories.
 - **HTML report:** a self-contained, responsive sensitivity heatmap with light/dark themes, confidence intervals, divergence timeline, failure breakdown, and fix-first suggestions.
 
@@ -29,7 +29,7 @@ make demo
 If `make` is unavailable, run the equivalent command directly:
 
 ```powershell
-python -m shakedown demo --runs 12 --max-runs 12 --min-runs 8 --workers 3 --max-usd 15
+python -m shakedown demo --runs 60 --max-runs 40 --min-runs 16 --workers 3 --max-minutes 60 --max-usd 15
 ```
 
 The experiment output is written under `runs/` (gitignored), including `report.html`, `analysis.json`, per-run records, and full request/response traces. For a free baseline-only smoke test:

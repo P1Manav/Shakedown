@@ -63,16 +63,16 @@ Per-task rates and Wilson intervals are also reported, using valid observations 
 
 ## Multiple comparisons
 
-Shakedown applies corrections within the analyzed family of perturbation cells. For \(m\) raw p-values sorted as \(p_{(1)}\le\cdots\le p_{(m)}\):
+Shakedown forms separate ablation, chaos, and noise families. Corrections are applied within each family, not across the combined grid. For a family with \(m\) raw p-values sorted as \(p_{(1)}\le\cdots\le p_{(m)}\):
 
 * **Holm step-down:** adjusted values are the cumulative maxima of \(\min(1,(m-i+1)p_{(i)})\); reject sequentially while \(p_{(i)}\le\alpha/(m-i+1)\).
 * **Benjamini–Hochberg:** adjusted values are the reverse cumulative minima of \(\min(1,mp_{(i)}/i)\); reject when adjusted \(p\le\alpha\).
 
-Raw pooled and stratified p-values remain separately available in `analysis.json`; a raw p-value is never described as an adjusted-significant result.
+Raw pooled and stratified p-values remain separately available in `analysis.json`; each cell shows its raw p-value and its within-family adjusted p-value. A raw p-value is never described as an adjusted-significant result.
 
 ## Familywise confidence intervals and detectable effects
 
-For \(m\) tested cells and family alpha \(\alpha\), simultaneous Newcombe intervals and the reported MDE use per-cell alpha \(\alpha/m\). The MDE is the smallest absolute difference achieving the target power for the two independent-binomial normal approximation. For candidate treatment rate \(p_T\), baseline rate \(p_C\), and arm sizes \(n_T,n_C\), the standard error is
+For a family of \(m\) tested cells and family alpha \(\alpha\), fixed-N simultaneous Newcombe intervals and the reported cell MDE use per-cell alpha \(\alpha/m\). Under sequential sampling with \(L\) planned looks, each look instead uses \(\alpha/(mL)\). The baseline-only MDE is unadjusted because it is a single-arm design summary. The cell MDE is the smallest absolute difference achieving the target power for the two independent-binomial normal approximation. For candidate treatment rate \(p_T\), baseline rate \(p_C\), and arm sizes \(n_T,n_C\), the standard error is
 
 \[
 SE=\sqrt{p_T(1-p_T)/n_T+p_C(1-p_C)/n_C}.
@@ -82,7 +82,7 @@ Two-sided power is \(\Phi(-z_{\alpha/2}-|\Delta|/SE)+1-\Phi(z_{\alpha/2}-|\Delta
 
 ## Sequential sampling
 
-At each planned look, Shakedown compares the cell with the baseline and spends at most \(\alpha/L\), where \(L\) is the planned number of looks. It stops for an effect when the raw p-value is below \(\alpha/L\), or for negligible effect when the simultaneous Newcombe interval rules out the configured meaningful drop. Final results still receive the configured across-cell Holm or BH correction. The invalid-run threshold is operational rather than statistical: grid execution stops when invalid runs exceed 20% of all attempted runs.
+At each planned look, Shakedown compares the cell with the baseline and spends at most \(\alpha/(mL)\), where \(m\) is the number of cells in that perturbation family and \(L\) is the planned number of batch looks. It evaluates only at batch boundaries. It stops for an effect when the raw p-value is below this per-look threshold, or for negligible effect when the simultaneous Newcombe interval rules out the configured meaningful drop. Clear cells stop early so remaining runs continue to accumulate on ambiguous cells. Final results still receive the configured Holm or BH correction within their family. The invalid-run threshold is operational rather than statistical: grid execution stops when invalid runs exceed 20% of all attempted runs.
 
 ## Oracle validation
 

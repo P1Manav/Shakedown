@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import random
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Callable
@@ -240,8 +241,12 @@ class GridRunner:
                 k = sum(1 for r in valid if r.success)
                 if self.budget.stop_rule == "sequential" and n >= min_n:
                     looks = max(2, math.ceil(max_n / max(1, self.budget.batch_size)))
+                    family_size = sum(1 for candidate in self.cells
+                                      if candidate.kind == cell.kind)
                     decision = sequential_decision(
-                        k, n, k0, n0, alpha=self.budget.alpha, max_looks=looks,
+                        k, n, k0, n0,
+                        alpha=self.budget.alpha / max(1, family_size),
+                        max_looks=looks,
                         meaningful_drop=self.budget.meaningful_drop,
                         min_runs=min_n, look=n // max(1, self.budget.batch_size))
                     summary.decision = decision.decision
@@ -302,6 +307,7 @@ class GridRunner:
             2,
             math.ceil(self.budget.max_runs_per_cell / max(1, self.budget.batch_size)),
         )
+        family_sizes = Counter(cell.kind for cell in perturbation_cells)
 
         for replicate in range(max_replicates):
             if self.stopped_reason:
@@ -349,13 +355,20 @@ class GridRunner:
                 if (self.budget.stop_rule == "sequential"
                         and n0 > 0
                         and len(valid) >= min(self.budget.min_runs_per_cell,
-                                              self.budget.max_runs_per_cell)):
+                                              self.budget.max_runs_per_cell)
+                        and (
+                            len(valid) % max(1, self.budget.batch_size) == 0
+                            or len(valid) >= self.budget.max_runs_per_cell
+                        )):
                     decision = sequential_decision(
                         sum(1 for row in valid if row.get("success")),
                         len(valid),
                         k0,
                         n0,
-                        alpha=self.budget.alpha,
+                        alpha=(
+                            self.budget.alpha
+                            / max(1, family_sizes.get(cell.kind, 1))
+                        ),
                         max_looks=max_looks,
                         meaningful_drop=self.budget.meaningful_drop,
                         min_runs=min(self.budget.min_runs_per_cell,

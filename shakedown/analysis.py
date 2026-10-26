@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from shakedown.claims import aggregate_claims
 from shakedown.diverge import divergence_analysis
@@ -12,14 +12,14 @@ from shakedown.stats import (
     holm,
     is_meaningful_effect_ruled_out,
     minimum_detectable_effect,
-    norm_ppf,
     newcombe_difference_interval,
+    norm_ppf,
     stratified_binary_comparison,
     two_proportion_test,
     wilson_interval,
 )
 from shakedown.store import Store
-from shakedown.taxonomy import aggregate_taxonomy, classify_run
+from shakedown.taxonomy import aggregate_taxonomy
 
 
 def _per_task(runs: list[dict]) -> dict:
@@ -146,24 +146,48 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         if cid not in cell_order:
             cell_order.append(cid)
 
+    cell_specs = {cell["id"]: cell for cell in meta.get("cells", [])}
+    family_by_cell = {}
+    for cid in cell_order:
+        group = by_cell.get(cid, [])
+        spec = cell_specs.get(cid, {})
+        family_by_cell[cid] = (
+            group[0].get("cell_kind", "") if group
+            else spec.get("kind", "")
+        ) or "other"
+    family_sizes = dict(Counter(family_by_cell.values()))
+    family_alphas = {
+        family: alpha / max(1, size) for family, size in family_sizes.items()
+    }
+    planned_looks = (
+        max(2, (budget.max_runs_per_cell + max(1, budget.batch_size) - 1)
+            // max(1, budget.batch_size))
+        if budget.stop_rule == "sequential" else 1
+    )
+    look_alphas = {
+        family: family_alpha / planned_looks
+        for family, family_alpha in family_alphas.items()
+    }
     raw_cells = []
-    family_alpha = alpha / max(1, len(cell_order))
-    family_z = norm_ppf(1.0 - family_alpha / 2.0)
     for cid in cell_order:
         group = by_cell.get(cid, [])
         if group:
             first = group[0]
             label, kind, params = first["cell_label"], first["cell_kind"], first.get("params", {})
         else:
-            spec = next((c for c in meta.get("cells", []) if c.get("id") == cid), {})
+            spec = cell_specs.get(cid, {})
             label, kind, params = spec.get("label", cid), spec.get("kind", ""), spec.get("config", {})
+        family = family_by_cell[cid]
+        family_alpha = family_alphas[family]
+        cell_alpha = look_alphas[family]
+        family_z = norm_ppf(1.0 - cell_alpha / 2.0)
         n = len(group)
         k = sum(1 for r in group if r["success"])
         verdict, reason = "not-run", "not run (budget or wall-clock cap)"
         comparison = None
         stratified = None
         label_comparison = None
-        mde = minimum_detectable_effect(base_rate, max(1, n), n0, family_alpha)
+        mde = minimum_detectable_effect(base_rate, max(1, n), n0, cell_alpha)
         comparison_data = None
         if n:
             comparison = two_proportion_test(k, n, k0, n0)
@@ -171,7 +195,7 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             comparison_data = comparison.as_dict()
             comparison_data["ci_low"] = ci_low
             comparison_data["ci_high"] = ci_high
-            mde = minimum_detectable_effect(base_rate, n, n0, family_alpha)
+            mde = minimum_detectable_effect(base_rate, n, n0, cell_alpha)
             treatment_by_task = {}
             for run in group:
                 entry = treatment_by_task.setdefault(run["task_id"], [0, 0])
@@ -193,6 +217,10 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
                 label_comparison = comparison
         raw_cells.append({
             "id": cid, "label": label, "kind": kind, "params": params,
+            "p_adjustment_family": family,
+            "family_size": family_sizes[family],
+            "family_alpha": family_alpha,
+            "cell_analysis_alpha": cell_alpha,
             "n": n, "k": k, "invalid_runs": sum(
                 1 for r in all_by_cell.get(cid, []) if r.get("invalid", False)),
             "tamper_detected": sum(
@@ -218,13 +246,22 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             "_raw": label_comparison.p_value if label_comparison else 1.0,
         })
 
-    p_values = [c["_raw"] for c in raw_cells]
-    if correction == "bh":
-        adjusted, rejected = benjamini_hochberg(p_values, alpha)
-    else:
-        adjusted, rejected = holm(p_values, alpha)
+    correction_results = {}
+    for family in family_sizes:
+        family_cells = [cell for cell in raw_cells
+                        if cell["p_adjustment_family"] == family]
+        p_values = [cell["_raw"] for cell in family_cells]
+        if correction == "bh":
+            adjusted, rejected = benjamini_hochberg(p_values, alpha)
+        else:
+            adjusted, rejected = holm(p_values, alpha)
+        correction_results.update({
+            cell["id"]: (adj, rej)
+            for cell, adj, rej in zip(family_cells, adjusted, rejected)
+        })
     # Cells with no runs must not be "rejected" by the correction.
-    for cell, adj, rej in zip(raw_cells, adjusted, rejected):
+    for cell in raw_cells:
+        adj, rej = correction_results[cell["id"]]
         if cell["n"] == 0:
             adj, rej = 1.0, False
         cell["p_raw"] = cell["_raw"]
@@ -312,7 +349,7 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         "methods": {
             "interval": "Wilson score interval (95%)",
             "test": "two-proportion z-test, Fisher exact when counts are small",
-            "difference_ci": "Newcombe hybrid score interval with Bonferroni familywise confidence adjustment",
+            "difference_ci": "Newcombe hybrid score interval with Bonferroni adjustment within cell-kind families",
             "effect_populations": {
                 "comparison": "intent-to-treat: all valid runs assigned to the cell",
                 "exposure": "runs with an observed perturbation diff, compared with baseline",
@@ -321,10 +358,25 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
                 "Cochran-Mantel-Haenszel task-stratified comparison when matched task strata "
                 "exist; pooled two-proportion result is an explicit fallback otherwise"
             ),
-            "family_confidence": 1.0 - family_alpha,
-            "correction": "Holm-Bonferroni" if correction == "holm" else "Benjamini-Hochberg",
-            "corrections_applied_across": len(raw_cells),
-            "mde_alpha": family_alpha,
+            "family_sizes": family_sizes,
+            "family_alpha": family_alphas,
+            "per_look_confidence_by_family": {
+                family: 1.0 - cell_alpha
+                for family, cell_alpha in look_alphas.items()
+            },
+            "correction": (
+                ("Holm-Bonferroni" if correction == "holm" else "Benjamini-Hochberg")
+                + " within each cell-kind family"
+            ),
+            "corrections_applied_by_family": family_sizes,
+            "mde_alpha_by_family": look_alphas,
+            "sequential_looks": planned_looks,
+            "sequential_spending": (
+                f"family alpha divided across {planned_looks} planned looks"
+                if budget.stop_rule == "sequential"
+                else "no sequential alpha spending"
+            ),
+            "baseline_mde_alpha": alpha,
             "mde_power": 0.8,
             "meaningful_drop": meaningful_drop,
             "labels": {
