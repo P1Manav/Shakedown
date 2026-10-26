@@ -28,4 +28,12 @@
 
 **Validation:** 37 unit tests pass, covering statistics, conservative labels, atomic budget reservations, configured proxy credentials, token limits, and request rejection before an upstream call when the cost ceiling exceeds budget. All 4 benchmark self-tests pass. The perturbation smoke completed 21 runs and 111 model calls in 2.9 minutes; baseline was 0/1, so all 20 cells are correctly labeled inconclusive. The report rebuilt from recorded runs.
 
-**Spend:** $0.00 across 22 local-model runs (116 calls total), using `qwen2.5-coder:7b` on local Ollama; no paid endpoint was used. The 30-run baseline checkpoint and polished README/report remain outstanding.
+**Spend:** $0.00 across 22 local-model runs (116 calls total), using `qwen2.5-coder:7b` on local Ollama; no paid endpoint was used. At this checkpoint, the 30-run baseline and polished README/report were still outstanding.
+
+## Checkpoint 4 — baseline reliability slice
+
+**Measured:** `shakedown run --baseline -n 30` across all four tasks produced 14/30 passes (46.7%; Wilson 95% CI 30.2–63.9%), with a 31.4-point minimum detectable effect. The measured per-task rates were 62.5%, 37.5%, 57.1%, and 28.6%. These are the observed results; they do not match the aspirational demo story and must not be tuned or presented as though they do.
+
+**Run cost:** 148 model calls and 176,236 tokens in 3.7 minutes; $0.00 at local Ollama pricing. No API spend.
+
+**Limitations:** The baseline is intentionally noisy and the 31.4-point MDE is large. First-divergence analysis is recorded, but no perturbation effects are inferred from this baseline-only run. A release tag will identify this executable baseline slice.
