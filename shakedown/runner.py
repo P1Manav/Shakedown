@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import re
+import signal
 import shutil
 import subprocess
 import tempfile
@@ -30,6 +32,10 @@ _PROTECTED_CONFIGS = {
     "pytest.ini", "tox.ini", "setup.cfg", "setup.py", "pyproject.toml",
     "conftest.py", "sitecustomize.py", "pytest.py",
 }
+_SECRET_ENV_NAME = re.compile(
+    r"(?:API[_-]?KEY|SECRET|TOKEN|PASSWORD|PASSWD|CREDENTIAL|AUTHORIZATION)",
+    re.IGNORECASE,
+)
 
 
 def _is_protected(relative: Path) -> bool:
@@ -87,21 +93,53 @@ def _restore_verification_workspace(workdir: Path, verification: Path,
 
 
 def _kill_tree(proc: subprocess.Popen) -> None:
+    if os.name == "nt":
+        result = subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode and proc.poll() is None:
+            raise RuntimeError(
+                f"failed to terminate process tree {proc.pid}: {result.stderr.strip()}"
+            )
+        return
     try:
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                           capture_output=True, timeout=10)
-        else:
-            proc.kill()
-    except Exception:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
         pass
+
+
+def _build_agent_environment(task: TaskSpec, run_id: str, workdir: Path,
+                             proxy_base_url: str) -> dict[str, str]:
+    env = {
+        key: value for key, value in os.environ.items()
+        if not _SECRET_ENV_NAME.search(key)
+    }
+    env.update({
+        "OPENAI_BASE_URL": proxy_base_url,
+        "OPENAI_API_KEY": "dummy",
+        "SHAKEDOWN_RUN_ID": run_id,
+        "MODEL_NAME": task.model.name,
+        "MODEL_TEMPERATURE": str(task.model.temperature),
+        "SHAKEDOWN_TEST_CMD": task.success_command,
+        "SHAKEDOWN_MAX_STEPS": str(task.max_model_calls),
+        "PYTHONPATH": str(ROOT) + (
+            os.pathsep + env.get("PYTHONPATH", "") if env.get("PYTHONPATH") else ""
+        ),
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+    })
+    env.pop("MODEL_BASE_URL", None)
+    return env
 
 
 def run_command(command: str, cwd: Path, env: dict, timeout_s: float) -> tuple[int, str, str, bool]:
     proc = subprocess.Popen(
         command, cwd=str(cwd), env=env, shell=True,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, encoding="utf-8", errors="replace")
+        text=True, encoding="utf-8", errors="replace",
+        **({"start_new_session": True} if os.name != "nt" else {}))
     try:
         out, err = proc.communicate(timeout=timeout_s)
         return proc.returncode, out or "", err or "", False
@@ -302,19 +340,9 @@ class Runner:
                          supports_seed=task.model.supports_seed)
         self.proxy.register(ctx)
 
-        env = dict(os.environ)
-        env.update({
-            "OPENAI_BASE_URL": self.proxy.base_url(run_id),
-            "OPENAI_API_KEY": "dummy",
-            "SHAKEDOWN_RUN_ID": run_id,
-            "MODEL_NAME": task.model.name,
-            "MODEL_TEMPERATURE": str(task.model.temperature),
-            "SHAKEDOWN_TEST_CMD": task.success_command,
-            "SHAKEDOWN_MAX_STEPS": str(task.max_model_calls),
-            "PYTHONPATH": str(ROOT) + (os.pathsep + env.get("PYTHONPATH", "") if env.get("PYTHONPATH") else ""),
-            "PYTHONUNBUFFERED": "1",
-        })
-        env.pop("MODEL_BASE_URL", None)
+        env = _build_agent_environment(
+            task, run_id, workdir, self.proxy.base_url(run_id)
+        )
 
         command = task.agent_command.format(
             task_file=f'"{task.path}"', workdir=f'"{workdir}"')

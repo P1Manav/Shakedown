@@ -17,7 +17,7 @@ from shakedown.cost import BudgetTracker, Pricing, estimate_grid, shrink_plan
 from shakedown.proxy import ProxyServer
 from shakedown.runner import Runner
 from shakedown.scheduler import CellSpec, GridRunner, build_cells
-from shakedown.spec import BudgetSpec, ROOT, discover_tasks, load_dotenv
+from shakedown.spec import BudgetSpec, discover_tasks, load_dotenv
 from shakedown.store import Store, new_experiment_id, utc_now
 
 DEFAULT_CALLS_PER_RUN = 8.0
@@ -396,7 +396,7 @@ def _configure_cli_output() -> None:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
-            reconfigure(errors="backslashreplace")
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 def build_parser() -> argparse.ArgumentParser:

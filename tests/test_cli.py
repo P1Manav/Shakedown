@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 
-def test_cli_output_does_not_crash_on_unsupported_console_characters():
+def test_cli_output_uses_utf8_despite_host_encoding():
     env = {**os.environ, "PYTHONIOENCODING": "cp1252:strict"}
     result = subprocess.run(
         [
@@ -14,9 +14,10 @@ def test_cli_output_does_not_crash_on_unsupported_console_characters():
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         env=env,
         check=False,
     )
 
     assert result.returncode == 0
-    assert result.stdout.strip() == r"\u2192"
+    assert result.stdout.strip() == "→"
