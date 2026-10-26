@@ -50,6 +50,7 @@ class RunResult:
     claimed_success: bool = False
     failure_class: str = ""
     events: list[dict] = field(default_factory=list)
+    agent_markers: dict = field(default_factory=dict)
     test_output: str = ""
     error: str = ""
     trace_path: str = ""

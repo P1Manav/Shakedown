@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -133,6 +131,116 @@ def parse_agent_output(stdout: str) -> tuple[str, list[str], list[dict]]:
     return final, actions, events
 
 
+def parse_proxy_trace(trace: list[dict]) -> dict:
+    actions: list[str] = []
+    events: list[dict] = []
+    final_message = ""
+
+    for trace_event in trace:
+        if trace_event.get("event") != "response":
+            continue
+        body = trace_event.get("body")
+        if not isinstance(body, dict):
+            continue
+        calls = []
+        response_text = []
+        if body.get("stream"):
+            streamed_calls: dict[int, dict] = {}
+            for chunk in body.get("events", []):
+                if not isinstance(chunk, dict):
+                    continue
+                for choice in chunk.get("choices") or []:
+                    delta = choice.get("delta") or {}
+                    content = delta.get("content")
+                    if isinstance(content, str):
+                        response_text.append(content)
+                    for index, call in enumerate(delta.get("tool_calls") or []):
+                        call_index = int(call.get("index", index))
+                        accumulated = streamed_calls.setdefault(
+                            call_index,
+                            {"id": "", "type": "function",
+                             "function": {"name": "", "arguments": ""}},
+                        )
+                        accumulated["id"] += str(call.get("id") or "")
+                        function = call.get("function") or {}
+                        accumulated["function"]["name"] += str(function.get("name") or "")
+                        arguments = function.get("arguments") or ""
+                        if isinstance(arguments, str):
+                            accumulated["function"]["arguments"] += arguments
+                    message = choice.get("message")
+                    if isinstance(message, dict):
+                        text = _message_text(message.get("content"))
+                        if text:
+                            response_text.append(text)
+                        calls.extend(message.get("tool_calls") or [])
+            calls.extend(streamed_calls[index] for index in sorted(streamed_calls))
+        else:
+            for choice in body.get("choices") or []:
+                message = choice.get("message") or {}
+                text = _message_text(message.get("content"))
+                if text:
+                    response_text.append(text)
+                calls.extend(message.get("tool_calls") or [])
+
+        text = "".join(response_text).strip()
+        if text:
+            final_message = text
+        for call in calls:
+            function = call.get("function") or {}
+            name = str(function.get("name") or "")
+            raw_args = function.get("arguments") or {}
+            try:
+                args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+            except json.JSONDecodeError:
+                args = {}
+                events.append({
+                    "event": "tool_error", "tool": name,
+                    "error": "malformed tool arguments in proxy trace",
+                })
+            if not isinstance(args, dict):
+                args = {}
+                events.append({
+                    "event": "tool_error", "tool": name,
+                    "error": "tool arguments were not an object",
+                })
+            primary = next(
+                (str(args[key]) for key in ("path", "file", "filename", "name")
+                 if key in args),
+                f"<{len(str(args['content']))} bytes>" if "content" in args else "-",
+            )
+            action = f"{name}:{primary}"
+            actions.append(action)
+            events.append({
+                "event": "tool_call",
+                "step": len(actions) - 1,
+                "tool": name,
+                "arg": primary,
+            })
+
+    for index in range(len(actions) - 2):
+        if actions[index] == actions[index + 1] == actions[index + 2]:
+            events.append({"event": "loop_detected", "action": actions[index]})
+            break
+    return {
+        "steps": len(actions),
+        "actions": actions,
+        "final_message": final_message,
+        "claimed_success": detect_claim(final_message),
+        "events": events,
+    }
+
+
+def _message_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            str(part.get("text") or "")
+            for part in content if isinstance(part, dict)
+        )
+    return ""
+
+
 class Runner:
     def __init__(self, store: Store, proxy: ProxyServer, keep_workspaces: bool = False,
                  fix_line: str = ""):
@@ -201,8 +309,8 @@ class Runner:
             task.success_command, verification, env, task.success_timeout_s)
         success = (not tamper_detected and not test_timeout and test_exit == 0)
 
-        final, actions, events = parse_agent_output(stdout)
-        claimed = detect_claim(final)
+        marker_final, marker_actions, marker_events = parse_agent_output(stdout)
+        trace_metrics = parse_proxy_trace(self.store.load_trace(run_id))
         stats = ctx.state
         if not stats.perturbation_applied and not stats.exposure_reason:
             stats.exposure_reason = "no perturbation opportunity occurred"
@@ -238,9 +346,17 @@ class Runner:
             model_calls=stats.calls, prompt_tokens=stats.prompt_tokens,
             completion_tokens=stats.completion_tokens,
             cost_usd=round(stats.cost_usd, 8),
-            steps=len(actions), actions=actions, final_message=final,
-            claimed_success=claimed,
-            events=events + ([{"event": "stderr", "text": stderr[-800:]}] if stderr.strip() else []),
+            steps=trace_metrics["steps"], actions=trace_metrics["actions"],
+            final_message=trace_metrics["final_message"],
+            claimed_success=trace_metrics["claimed_success"],
+            events=trace_metrics["events"] + (
+                [{"event": "stderr", "text": stderr[-800:]}] if stderr.strip() else []
+            ),
+            agent_markers={
+                "final": marker_final,
+                "actions": marker_actions,
+                "events": marker_events,
+            },
             test_output=(test_out + "\n" + test_err).strip()[-4000:],
             error="; ".join(stats.errors[-5:]),
             trace_path=str(self.store.trace_path(run_id)),
