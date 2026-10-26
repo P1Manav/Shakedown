@@ -25,7 +25,9 @@ MAX_OBSERVATION = 8000
 
 
 def load_chunks() -> dict:
-    manifest = yaml.safe_load((CHUNK_DIR / "manifest.yaml").read_text(encoding="utf-8"))
+    manifest = yaml.safe_load(
+        (CHUNK_DIR / "manifest.yaml").read_text(encoding="utf-8-sig")
+    )
     chunks = []
     for item in manifest["chunks"]:
         chunks.append({**item, "text": (CHUNK_DIR / item["file"]).read_text(encoding="utf-8").strip()})
@@ -160,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     workdir = Path(args.workdir).resolve()
-    task = yaml.safe_load(Path(args.task).read_text(encoding="utf-8"))
+    task = yaml.safe_load(Path(args.task).read_text(encoding="utf-8-sig"))
     base_url = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:11434/v1").rstrip("/")
     api_key = os.environ.get("OPENAI_API_KEY", "dummy")
     model = os.environ.get("MODEL_NAME", "qwen2.5:7b-instruct-q4_K_M")

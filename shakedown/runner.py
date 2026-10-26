@@ -337,7 +337,12 @@ class Runner:
                          store=self.store, pricing=self._pricing(task),
                          fix_line=self.fix_line, model_name=task.model.name,
                          temperature=task.model.temperature,
-                         supports_seed=task.model.supports_seed)
+                         supports_seed=task.model.supports_seed,
+                         prompt_chunks=[
+                             {"id": chunk.id, "kind": chunk.kind,
+                              "tool": chunk.tool, "text": chunk.text}
+                             for chunk in task.chunks
+                         ])
         self.proxy.register(ctx)
 
         env = _build_agent_environment(

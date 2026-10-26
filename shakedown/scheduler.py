@@ -54,7 +54,7 @@ def build_cells(tasks: list[TaskSpec], ablation: bool = True, chaos: bool = True
                                   config={"fault": config.fault, "tool": config.tool,
                                           **config.params}))
     if noise:
-        for mode in ("reorder_tools", "typos"):
+        for mode in first.noise_modes:
             cells.append(CellSpec(id=f"noise:{mode}", label=f"noise: {mode}", kind="noise",
                                   config={"mode": mode}))
     return cells

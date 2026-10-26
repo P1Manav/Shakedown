@@ -51,6 +51,7 @@ class RunContext:
     model_name: str | None = None
     temperature: float | None = None
     supports_seed: bool = False
+    prompt_chunks: list[dict] = field(default_factory=list)
     state: RunState = field(init=False)
     inbound_headers: dict = field(default_factory=dict)
     _call_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
@@ -97,6 +98,48 @@ def _diff_hash(before: Any, after: Any) -> str:
         ensure_ascii=False,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _content_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            str(part.get("text") or "")
+            for part in content if isinstance(part, dict)
+        )
+    return ""
+
+
+def _missing_prompt_chunks(payload: dict, chunks: list[dict]) -> list[str]:
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        messages = []
+    system_text = "\n".join(
+        _content_text(message.get("content"))
+        for message in messages
+        if isinstance(message, dict)
+        and message.get("role") == "system"
+    )
+    tools = payload.get("tools")
+    if not isinstance(tools, list):
+        tools = []
+    tool_descriptions = {}
+    for tool in tools:
+        if not isinstance(tool, dict) or not isinstance(tool.get("function"), dict):
+            continue
+        function = tool["function"]
+        name = function.get("name")
+        if isinstance(name, str):
+            tool_descriptions[name] = str(function.get("description") or "")
+    return [
+        chunk["id"]
+        for chunk in chunks
+        if chunk["text"] not in (
+            system_text if chunk["kind"] == "system"
+            else tool_descriptions.get(chunk.get("tool"), "")
+        )
+    ]
 
 
 def _parse_sse_events(body: bytes) -> list[dict]:
@@ -265,6 +308,8 @@ class ProxyServer:
             payload = await request.json()
         except Exception:
             return _error("request body must be JSON", 400)
+        if not isinstance(payload, dict):
+            return _error("request body must be a JSON object", 400)
 
         if not ctx.reserve_run_call():
             ctx.state.errors.append("per-run call cap reached")
@@ -275,6 +320,18 @@ class ProxyServer:
             "ts": utc_now(), "event": "request", "body": original,
             "headers": {"user-agent": request.headers.get("user-agent", "")},
         })
+        missing_chunks = _missing_prompt_chunks(payload, ctx.prompt_chunks)
+        if missing_chunks:
+            error = "configured prompt chunks missing from agent prompt: " + ", ".join(
+                missing_chunks
+            )
+            ctx.state.errors.append(error)
+            ctx.state.invalid = True
+            self.store.append_trace(run_id, {
+                "ts": utc_now(), "event": "prompt_validation_error",
+                "missing_chunks": missing_chunks,
+            })
+            return _error(error, 500, "invalid_run")
 
         try:
             ctx.state.exposure_reason = ""

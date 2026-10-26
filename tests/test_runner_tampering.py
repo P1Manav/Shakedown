@@ -39,6 +39,7 @@ def test_runner_restores_pristine_tests_and_fails_tampered_run(tmp_path):
         success_command="python -m pytest -q tests",
         success_timeout_s=30,
         max_model_calls=5,
+        chunks=[],
         model=SimpleNamespace(
             name="test-model",
             temperature=0.0,

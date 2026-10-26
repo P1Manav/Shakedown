@@ -8,7 +8,7 @@ import pytest
 from shakedown.cost import BudgetTracker, Pricing
 from shakedown.perturb.ablation import AblationPerturbation
 from shakedown.perturb.chaos import ChaosPerturbation
-from shakedown.perturb.base import RunState
+from shakedown.perturb.base import Baseline, RunState
 from shakedown.proxy import ProxyServer, RunContext
 from shakedown.store import RunResult, Store
 
@@ -22,7 +22,7 @@ class FakeUpstream:
         )
 
 
-def _post(store, perturbation, payload):
+def _post(store, perturbation, payload, prompt_chunks=None):
     proxy = ProxyServer(
         "https://model.example/v1",
         store,
@@ -38,6 +38,7 @@ def _post(store, perturbation, payload):
         max_calls=5,
         store=store,
         pricing=Pricing(input_per_1m=1.0, output_per_1m=2.0),
+        prompt_chunks=prompt_chunks or [],
     )
     proxy.register(context)
 
@@ -164,6 +165,45 @@ def test_tool_fault_target_never_called_is_not_exposed(tmp_path):
         event["event"] == "perturbation" and event["reason"] == "target tool was never called"
         for event in trace
     )
+
+
+def test_missing_configured_prompt_chunk_invalidates_request(tmp_path):
+    store = Store("missing-chunk", tmp_path)
+    chunks = [{"id": "identity", "kind": "system", "text": "Required exact prompt text."}]
+
+    response, context, trace = _post(
+        store, Baseline(), {"messages": [{"role": "system", "content": "Do the task."}]},
+        prompt_chunks=chunks,
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"]["type"] == "invalid_run"
+    assert context.state.invalid is True
+    assert any(event["event"] == "prompt_validation_error" for event in trace)
+
+
+def test_configured_system_and_tool_chunks_match_outgoing_prompt(tmp_path):
+    store = Store("matching-chunks", tmp_path)
+    chunks = [
+        {"id": "identity", "kind": "system", "text": "Do the requested work."},
+        {
+            "id": "tool_read_file", "kind": "tool_description",
+            "tool": "read_file", "text": "Read a file from the workspace.",
+        },
+    ]
+    payload = {
+        "messages": [{"role": "system", "content": "Do the requested work."}],
+        "tools": [{"type": "function", "function": {
+            "name": "read_file", "description": "Read a file from the workspace.",
+        }}],
+    }
+
+    response, context, _ = _post(
+        store, Baseline(), payload, prompt_chunks=chunks
+    )
+
+    assert response.status_code == 200
+    assert context.state.invalid is False
 
 
 def test_added_latency_fault_delays_target_result_and_records_exposure(tmp_path):

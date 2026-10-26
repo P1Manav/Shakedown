@@ -36,6 +36,7 @@ def test_runner_derives_agent_metrics_from_proxy_trace_not_stdout_markers(
         max_model_calls=10,
         success_command="success-check",
         success_timeout_s=10,
+        chunks=[],
         model=SimpleNamespace(
             name="test-model",
             temperature=0.0,

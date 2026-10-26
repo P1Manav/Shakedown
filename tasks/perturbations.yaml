@@ -1,0 +1,14 @@
+ablation:
+  - chunks: all
+    modes: [remove, shuffle]
+
+chaos:
+  - {fault: truncate_output, tool: run_tests, keep_chars: 200}
+  - {fault: empty_result, tool: read_file}
+  - {fault: malformed_json, tool: run_tests}
+  - {fault: error_once, tool: write_file}
+  - {fault: stale_file, tool: read_file}
+  - {fault: renamed_path, tool: read_file}
+  - {fault: added_latency, tool: read_file, delay_ms: 500}
+
+noise: [reorder_tools, typos, paraphrase]
