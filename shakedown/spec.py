@@ -11,6 +11,8 @@ from typing import Any, Mapping
 
 import yaml
 
+from shakedown.model_config import DEFAULT_MODEL_NAME
+
 
 def load_dotenv(path: Path | None = None) -> None:
     """Minimal .env loader; never overrides variables already set."""
@@ -126,7 +128,7 @@ _BUDGET_KEYS = set(BudgetSpec.__dataclass_fields__)
 @dataclass(frozen=True)
 class ModelSpec:
     base_url: str = "http://127.0.0.1:11434/v1"
-    name: str = "qwen2.5-coder:7b"
+    name: str = DEFAULT_MODEL_NAME
     temperature: float = 0.7
     supports_seed: bool = False
     price_input_per_1m: float = 0.0

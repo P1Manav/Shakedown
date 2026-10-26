@@ -19,6 +19,8 @@ from pathlib import Path
 import httpx
 import yaml
 
+from shakedown.model_config import DEFAULT_MODEL_NAME
+
 PKG = Path(__file__).resolve().parent
 CHUNK_DIR = PKG / "prompt_chunks"
 MAX_OBSERVATION = 8000
@@ -165,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     task = yaml.safe_load(Path(args.task).read_text(encoding="utf-8-sig"))
     base_url = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:11434/v1").rstrip("/")
     api_key = os.environ.get("OPENAI_API_KEY", "dummy")
-    model = os.environ.get("MODEL_NAME", "qwen2.5:7b-instruct-q4_K_M")
+    model = os.environ.get("MODEL_NAME", DEFAULT_MODEL_NAME)
     temperature = float(os.environ.get("MODEL_TEMPERATURE", "0.7"))
     max_steps = int(os.environ.get("SHAKEDOWN_MAX_STEPS", "12"))
     test_cmd = os.environ.get("SHAKEDOWN_TEST_CMD", "python -m pytest -q tests/")
