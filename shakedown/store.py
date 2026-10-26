@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-RUNS_DIR = ROOT / "runs"
+def _runs_root() -> Path:
+    home = os.environ.get("SHAKEDOWN_HOME")
+    return (Path(home).expanduser() if home else Path.cwd()) / "runs"
 
 
 def utc_now() -> str:
@@ -64,7 +66,7 @@ class RunResult:
 class Store:
     def __init__(self, experiment_id: str, root: Path | None = None):
         self.experiment_id = experiment_id
-        self.dir = (root or RUNS_DIR) / experiment_id
+        self.dir = (root if root is not None else _runs_root()) / experiment_id
         self.traces = self.dir / "traces"
         self.traces.mkdir(parents=True, exist_ok=True)
         self.runs_path = self.dir / "runs.jsonl"

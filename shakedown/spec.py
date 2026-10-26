@@ -5,28 +5,29 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
-TASKS_DIR = ROOT / "tasks"
-
-
 def load_dotenv(path: Path | None = None) -> None:
     """Minimal .env loader; never overrides variables already set."""
-    path = path or ROOT / ".env"
-    if not path.exists():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+    paths = [path] if path is not None else [
+        Path.cwd() / ".env",
+        Path.home() / ".env",
+    ]
+    for dotenv_path in paths:
+        if not dotenv_path.exists():
             continue
-        key, value = line.split("=", 1)
-        key, value = key.strip(), value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = value
+        for line in dotenv_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key, value = key.strip(), value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
 
 
 _ENV_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -132,11 +133,15 @@ def _project_root_for(task_dir: Path) -> Path:
     for parent in [task_dir, *task_dir.parents]:
         if (parent / "shakedown").is_dir() and (parent / "tasks").is_dir():
             return parent
-    return ROOT
+    return Path(__file__).resolve().parent.parent
 
 
 def _resolve_chunk_file(file: str, task_dir: Path) -> Path:
-    candidates = [task_dir / file, _project_root_for(task_dir) / file, ROOT / file]
+    candidates = [
+        task_dir / file,
+        _project_root_for(task_dir) / file,
+        Path(__file__).resolve().parent.parent / file,
+    ]
     for candidate in candidates:
         if candidate.exists():
             return candidate
@@ -220,7 +225,7 @@ def load_task(path: str | Path, budget_override: dict | None = None) -> TaskSpec
 
 def discover_tasks(root: Path | None = None, names: list[str] | None = None,
                    budget_override: dict | None = None) -> list[TaskSpec]:
-    root = root or TASKS_DIR
+    root = root or Path(resources.files("tasks"))
     paths = sorted(p / "task.yaml" for p in root.iterdir() if (p / "task.yaml").exists())
     if names:
         wanted = set(names)

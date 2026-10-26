@@ -491,7 +491,6 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv()
     parser = build_parser()
     args = parser.parse_args(argv)
-    load_dotenv()
     return args.func(args)
 
 
