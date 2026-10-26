@@ -1,0 +1,51 @@
+﻿name: bugfix_01_median
+description: |
+  median() in calc.py returns the wrong value for lists with an even number of
+  items. The tests in tests/ define the expected behavior. Find the bug and fix
+  it with the smallest possible edit.
+agent:
+  command: 'python -m shakedown.demo_agent.agent --task {task_file} --workdir {workdir}'
+  timeout_s: 240
+  max_model_calls: 18
+workspace:
+  source: repo
+  isolation: tempdir
+success:
+  command: 'python -m pytest -q tests/'
+  timeout_s: 120
+  pass_if: exit_code_0
+prompt_chunks:
+  - {id: identity, file: shakedown/demo_agent/prompt_chunks/identity.md, kind: system}
+  - {id: workflow, file: shakedown/demo_agent/prompt_chunks/workflow.md, kind: system}
+  - {id: verification, file: shakedown/demo_agent/prompt_chunks/verification.md, kind: system}
+  - {id: tool_read_file, file: shakedown/demo_agent/prompt_chunks/tool_read_file.md, kind: tool_description, tool: read_file}
+  - {id: tool_write_file, file: shakedown/demo_agent/prompt_chunks/tool_write_file.md, kind: tool_description, tool: write_file}
+  - {id: tool_run_tests, file: shakedown/demo_agent/prompt_chunks/tool_run_tests.md, kind: tool_description, tool: run_tests}
+  - {id: tool_list_dir, file: shakedown/demo_agent/prompt_chunks/tool_list_dir.md, kind: tool_description, tool: list_dir}
+perturbations:
+  ablation:
+    - chunks: all
+      modes: [remove, shuffle]
+  chaos:
+    - {fault: truncate_output, tool: run_tests, keep_chars: 200}
+    - {fault: empty_result, tool: read_file}
+    - {fault: malformed_json, tool: run_tests}
+    - {fault: error_once, tool: write_file}
+    - {fault: stale_file, tool: read_file}
+    - {fault: renamed_path, tool: read_file}
+budget:
+  baseline_runs: 60
+  min_runs_per_cell: 12
+  max_runs_per_cell: 40
+  alpha: 0.05
+  correction: holm
+  stop_rule: sequential
+  meaningful_drop: 0.25
+  max_total_calls: 6000
+  max_usd: 15
+  max_workers: 3
+  max_minutes: 180
+model:
+  base_url: ${MODEL_BASE_URL}
+  name: ${MODEL_NAME}
+  temperature: 0.7

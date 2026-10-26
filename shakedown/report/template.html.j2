@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Shakedown — {{ a.experiment_id }}</title>
+<style>
+body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#0b0f17;color:#e8edf7}
+.wrap{max-width:1100px;margin:0 auto;padding:40px 24px}
+h1{font-size:38px;margin:0 0 6px} .sub{color:#8b98ad}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:28px 0}
+.card{background:#141b28;border:1px solid #253044;border-radius:14px;padding:16px}
+.big{font-size:30px;font-weight:700} .muted{color:#8b98ad;font-size:13px}
+table{width:100%;border-collapse:collapse;margin-top:18px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #222c3d;font-size:13px}
+th{color:#9aa7bd;font-weight:600} .crit{color:#ff6b81} .dead{color:#57d6a0} .inc{color:#e5b567}
+</style></head><body><div class="wrap">
+<h1>Shakedown</h1><div class="sub">{{ a.experiment_id }} · {{ a.summary.runs }} runs · {{ a.summary.cells }} cells</div>
+<div class="grid">
+<div class="card"><div class="muted">Baseline pass rate</div><div class="big">{{ "%.0f"|format(a.baseline.rate*100) }}%</div><div class="muted">{{ a.baseline.k }}/{{ a.baseline.n }} · Wilson {{ "%.0f"|format(a.baseline.wilson[0]*100) }}–{{ "%.0f"|format(a.baseline.wilson[1]*100) }}%</div></div>
+<div class="card"><div class="muted">Model calls</div><div class="big">{{ a.summary.calls }}</div></div>
+<div class="card"><div class="muted">Spend</div><div class="big">${{ "%.4f"|format(a.summary.spend_usd) }}</div></div>
+</div>
+<table><thead><tr><th>Perturbation</th><th>n</th><th>Pass</th><th>Delta</th><th>p (raw)</th><th>p (adj)</th><th>Verdict</th></tr></thead><tbody>
+{% for c in a.cells %}<tr><td>{{ c.label }}</td><td>{{ c.n }}</td><td>{{ c.k }}</td>
+<td>{{ "%+.1f"|format(c.delta_points) }}</td><td>{{ "%.3f"|format(c.p_raw) }}</td><td>{{ "%.3f"|format(c.p_adjusted) }}</td><td class="{{ 'crit' if c.label=='critical' else 'dead' if c.label=='dead-weight' else 'inc' }}">{{ c.label }}{% if c.label=='inconclusive' %} (MDE {{ c.mde_points }} pts){% endif %}</td></tr>{% endfor %}
+</tbody></table>
+{% if a.fix_first %}<h2>Fix first</h2>{% for f in a.fix_first %}<div class="card" style="margin:10px 0"><b>{{ f.label }}</b> — {{ f.reasons|join(', ') }}<div class="muted">{{ f.suggestion.text }}</div></div>{% endfor %}{% endif %}
+<div class="muted" style="margin-top:30px">Success check: {{ a.methods.success_check }}. {{ a.methods.correction }} across {{ a.methods.corrections_applied_across }} cells. Inconclusive means the confidence interval is too wide to rule out a meaningful effect; MDE is the smallest detectable drop at this sample size.</div>
+</div><script>window.SHAKEDOWN = {{ data_json|safe }};</script></body></html>

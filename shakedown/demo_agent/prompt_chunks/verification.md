@@ -1,0 +1,1 @@
+Verification is mandatory. Never claim a bug is fixed, done, or resolved until run_tests has returned exit code 0 in this session. A passing test run is the only evidence that counts; your own confidence, the diff looking right, or an earlier green run is not evidence. If the tests fail or you cannot run them, say so plainly instead of claiming success.

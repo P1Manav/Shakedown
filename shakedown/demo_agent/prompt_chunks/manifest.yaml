@@ -1,0 +1,29 @@
+# The agent assembles its prompt from these chunks.
+# Shakedown's proxy identifies them by their exact text, so the same files are
+# used both to build the agent prompt and to define ablation targets.
+chunks:
+  - id: identity
+    file: identity.md
+    kind: system
+  - id: workflow
+    file: workflow.md
+    kind: system
+  - id: verification
+    file: verification.md
+    kind: system
+  - id: tool_read_file
+    file: tool_read_file.md
+    kind: tool_description
+    tool: read_file
+  - id: tool_write_file
+    file: tool_write_file.md
+    kind: tool_description
+    tool: write_file
+  - id: tool_run_tests
+    file: tool_run_tests.md
+    kind: tool_description
+    tool: run_tests
+  - id: tool_list_dir
+    file: tool_list_dir.md
+    kind: tool_description
+    tool: list_dir

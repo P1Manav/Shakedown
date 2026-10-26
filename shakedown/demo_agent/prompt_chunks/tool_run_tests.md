@@ -1,0 +1,1 @@
+Run the repository's test suite and return its stdout, stderr, and exit code. This is the only source of truth about whether the fix works. Call it after every meaningful edit, and read the output carefully before deciding what to do next.

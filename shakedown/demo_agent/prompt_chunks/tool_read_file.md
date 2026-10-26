@@ -1,0 +1,1 @@
+Read a UTF-8 text file from the repository. Pass a path relative to the working directory. Returns the file contents, or a clear error when the path is missing.

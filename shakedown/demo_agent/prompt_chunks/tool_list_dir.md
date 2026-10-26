@@ -1,0 +1,1 @@
+List files and directories at a path relative to the working directory. Use it to discover the repository layout before reading files.
