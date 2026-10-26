@@ -36,4 +36,22 @@
 
 **Run cost:** 148 model calls and 176,236 tokens in 3.7 minutes; $0.00 at local Ollama pricing. No API spend.
 
-**Limitations:** The baseline is intentionally noisy and the 31.4-point MDE is large. First-divergence analysis is recorded, but no perturbation effects are inferred from this baseline-only run. A release tag will identify this executable baseline slice.
+**Limitations:** The baseline is intentionally noisy and the 31.4-point MDE is large. First-divergence analysis is recorded, but no perturbation effects are inferred from this baseline-only run. Tag `v0.1-baseline` identifies this executable baseline slice.
+
+## Checkpoint 5 — budget-aware grid sizing
+
+**Built:** Grid estimates now include the global model-call cap, and `shakedown run` applies the reduced per-cell maximum before execution. The default four-task grid estimated 6,880 calls against the 6,000 cap, so it now shrinks from 40 to 30 runs per perturbation cell (5,280 estimated calls) while keeping all cells and the 60-run baseline.
+
+**Validation:** 38 unit tests pass. `python -m shakedown estimate` reports the original upper bound and the actual planned maximum; the shrink-plan test covers this 6,000-call boundary.
+
+**Spend to date:** $0.00 across 52 local-model runs and 264 calls; no paid endpoint has been used.
+
+## Checkpoint 6 — familywise inference and release polish
+
+**Built:** Perturbation difference intervals now use Bonferroni familywise coverage across all planned cells, and cell MDEs use the same adjusted alpha. The report states the familywise confidence level; a 20-cell test confirms that an ordinary 95% interval cannot incorrectly mark a low-powered cell as dead weight. Fix reruns now carry forward the originating experiment's call and spend usage, including prior fix attempts. Cost-risk candidates require at least eight observations so a one-run smoke cannot create a fix-first finding. Added the responsive self-contained HTML report, package metadata/task data, README, and `make demo` entry point.
+
+**Validation:** The full unit suite passes, and all four benchmark self-tests pass both from the checkout and an installed wheel. The one-task end-to-end smoke completed 21 runs (baseline plus 20 perturbations) and 113 model calls in 3.3 minutes at $0.00. Baseline was 1/1; every perturbation remains inconclusive at this sample size (MDE 94 points), so no effects are claimed. The first invocation exposed a Windows CP1252 output error for the arrow in chaos labels; console output now escapes unsupported characters, and the rerun completed and wrote its HTML report.
+
+**Spend to date:** $0.00 across 94 local-model runs and 489 calls, using local Ollama only. No paid model endpoint was used; the configured hard cap remains $15.
+
+**Known limits:** The full default grid and fix remeasurement were not run because the tiny smoke was for pipeline verification, not statistical inference. Results from the one-run smoke are not suitable for conclusions. Temporary workspaces are not OS-level security sandboxes.

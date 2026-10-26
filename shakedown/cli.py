@@ -89,10 +89,13 @@ def _print_estimate(tasks, cells: list[CellSpec], budget: BudgetSpec, pricing: P
           f"{budget.max_workers} workers")
     plan = shrink_plan(len(cells) - 1, budget.baseline_runs, budget.max_runs_per_cell,
                        budget.min_runs_per_cell, est["usd"], budget.max_usd,
-                       est["wall_minutes"], budget.max_minutes, len(tasks))
+                       est["wall_minutes"], budget.max_minutes, len(tasks),
+                       est["model_calls"], budget.max_total_calls)
     if plan["notes"]:
         print(f"[estimate] auto-shrink: {'; '.join(plan['notes'])}")
-    return {"estimate": est, "shrink": plan}
+        print(f"[estimate] planned max: {plan['model_calls']} calls, "
+              f"<= {plan['runs_per_cell']}/perturbation cell")
+    return plan
 
 
 def _meta(tasks, cells, budget, model, started, fix_line="") -> dict:
@@ -121,7 +124,13 @@ def _execute_run(args, cells: list[CellSpec], experiment_id: str, fix_line: str 
     tasks = _discover(args)
     budget = _budget_from_args(args, tasks)
     pricing = Pricing.from_model(tasks[0].model)
-    _print_estimate(tasks, cells, budget, pricing)
+    plan = _print_estimate(tasks, cells, budget, pricing)
+    if plan["runs_per_cell"] < budget.max_runs_per_cell:
+        budget = BudgetSpec(**{
+            **asdict(budget),
+            "max_runs_per_cell": plan["runs_per_cell"],
+        })
+        tasks = _discover(args, budget)
 
     store = Store(experiment_id)
     tracker = BudgetTracker(budget.max_total_calls, budget.max_usd)
@@ -188,7 +197,7 @@ def _print_status(store: Store, meta: dict) -> None:
         sig = "*" if cell["significant"] else " "
         print(f"  {sig} {cell['label']:<34} {cell['k']:>2}/{cell['n']:<2} "
               f"{cell['delta_points']:+6.1f} pts  p_adj={cell['p_adjusted']:.3f}  "
-              f"{cell['label'] if isinstance(cell['label'], str) else ''}")
+              f"{cell['verdict']}: {cell['reason']}")
     if analysis["fix_first"]:
         top = analysis["fix_first"][0]
         print(f"[fix-first] {top['label']} — {', '.join(top['reasons'])}")
@@ -377,6 +386,13 @@ def _open(path: Path) -> None:
         pass
 
 
+def _configure_cli_output() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="backslashreplace")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="shakedown",
                                      description="Sensitivity profiler for AI agents")
@@ -465,6 +481,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_cli_output()
     load_dotenv()
     parser = build_parser()
     args = parser.parse_args(argv)

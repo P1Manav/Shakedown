@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from shakedown.claims import FAILURE_HINT
 from shakedown.stats import two_proportion_test, wilson_interval
 
@@ -71,15 +74,15 @@ def rank_fix_first(cells: list[dict], baseline_rate: float, task_chunks: dict) -
     for cell in cells:
         if not cell.get("n"):
             continue
-        label = cell.get("label")
+        verdict = cell.get("verdict")
         delta_points = cell.get("delta_points", 0.0)
         false_rate = (cell.get("claims") or {}).get("false_claim_rate", 0.0)
         score = 0.0
         reasons = []
-        if label == "critical":
+        if verdict == "critical":
             score += max(0.0, -delta_points) + 15
             reasons.append(f"{abs(delta_points):.0f} pt drop")
-        if false_rate >= 0.10:
+        if false_rate >= 0.10 and cell.get("significant"):
             score += false_rate * 45
             reasons.append(f"{false_rate * 100:.0f}% false claims")
         if (cell.get("cost") or {}).get("cost_risk"):
@@ -90,6 +93,7 @@ def rank_fix_first(cells: list[dict], baseline_rate: float, task_chunks: dict) -
         suggestion = suggest_for_cell(cell, task_chunks)
         ranked.append({
             "cell_id": cell["id"], "label": cell["label"], "kind": cell.get("kind"),
+            "verdict": verdict,
             "score": round(score, 2), "delta_points": delta_points,
             "p_adjusted": cell.get("p_adjusted"),
             "false_claim_rate": false_rate,
@@ -136,8 +140,8 @@ def run_fix(store_dir, cells_to_run: list[str] | None, baseline_n: int, max_minu
     from shakedown.store import Store, new_experiment_id, utc_now
 
     load_dotenv()
-    original_store = Store(__import__("pathlib").Path(store_dir).name,
-                           __import__("pathlib").Path(store_dir).parent)
+    original_path = Path(store_dir)
+    original_store = Store(original_path.name, original_path.parent)
     meta = original_store.load_meta()
     analysis = build_analysis(original_store, meta)
     if not analysis["fix_first"]:
@@ -164,13 +168,40 @@ def run_fix(store_dir, cells_to_run: list[str] | None, baseline_n: int, max_minu
     }
     tasks = discover_tasks(names=task_ids or None, budget_override=budget_override)
 
+    original_runs = original_store.load_runs()
+    prior_spend = max(
+        float(meta.get("spend_usd", 0.0)),
+        sum(float(run.get("cost_usd", 0.0)) for run in original_runs),
+    )
+    prior_calls = max(
+        int(meta.get("calls", 0)),
+        sum(int(run.get("model_calls", 0)) for run in original_runs),
+    )
+    fix_experiments = list(dict.fromkeys(meta.get("fix_experiments", [])))
+    for previous_id in fix_experiments:
+        previous_store = Store(previous_id, original_store.dir.parent)
+        previous_meta = previous_store.load_meta()
+        previous_runs = previous_store.load_runs()
+        prior_spend += max(
+            float(previous_meta.get("spend_usd", 0.0)),
+            sum(float(run.get("cost_usd", 0.0)) for run in previous_runs),
+        )
+        prior_calls += max(
+            int(previous_meta.get("calls", 0)),
+            sum(int(run.get("model_calls", 0)) for run in previous_runs),
+        )
+
     experiment_id = new_experiment_id("fix")
-    new_store = Store(experiment_id)
+    new_store = Store(experiment_id, original_store.dir.parent)
+    fix_experiments.append(experiment_id)
+    meta["fix_experiments"] = fix_experiments
+    original_store.save_meta(meta)
     tracker = BudgetTracker(meta.get("budget", {}).get("max_total_calls", 6000),
-                            meta.get("budget", {}).get("max_usd", 15))
+                            meta.get("budget", {}).get("max_usd", 15),
+                            initial_calls=prior_calls, initial_usd=prior_spend)
     model = tasks[0].model
     proxy = ProxyServer(model.base_url, new_store, tracker, Pricing.from_model(model),
-                        upstream_api_key=__import__("os").environ.get("MODEL_API_KEY", "local"))
+                        upstream_api_key=os.environ.get("MODEL_API_KEY", "local"))
     proxy.start()
     try:
         runner = Runner(new_store, proxy, keep_workspaces=keep_workspaces,
@@ -180,6 +211,18 @@ def run_fix(store_dir, cells_to_run: list[str] | None, baseline_n: int, max_minu
         grid.run()
     finally:
         proxy.stop()
+
+    new_store.save_meta({
+        "experiment_id": experiment_id,
+        "status": "complete" if not grid.stopped_reason else "stopped",
+        "budget": meta.get("budget", {}),
+        "spend_usd": round(tracker.usd - prior_spend, 6),
+        "calls": tracker.calls - prior_calls,
+        "campaign_spend_usd": round(tracker.usd, 6),
+        "campaign_calls": tracker.calls,
+        "finished_at": utc_now(),
+        "stopped_reason": grid.stopped_reason,
+    })
 
     fixed_analysis = build_analysis(new_store, {
         "budget": tasks[0].budget.__dict__, "cells": [
@@ -202,6 +245,7 @@ def run_fix(store_dir, cells_to_run: list[str] | None, baseline_n: int, max_minu
                                          "k": fixed_analysis["baseline"]["k"]}),
         "target": None,
         "spend_usd": fixed_analysis["summary"]["spend_usd"],
+        "campaign_spend_usd": round(tracker.usd, 6),
         "runs": fixed_analysis["summary"]["runs"],
     }
     if orig_cell_row and fixed_cell_row and orig_cell_row["n"] and fixed_cell_row["n"]:

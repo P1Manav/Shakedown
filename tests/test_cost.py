@@ -7,6 +7,7 @@ from shakedown.cost import (
     BudgetTracker,
     Pricing,
     request_cost_ceiling,
+    shrink_plan,
     validate_endpoint_pricing,
 )
 
@@ -78,3 +79,44 @@ def test_budget_allows_zero_cost_requests_with_zero_spend_cap():
     assert tracker.snapshot()["calls"] == 1
     with pytest.raises(BudgetExceeded, match="call cap"):
         tracker.reserve(0)
+
+
+def test_budget_tracker_carries_usage_forward_between_campaign_stages():
+    tracker = BudgetTracker(max_calls=3, max_usd=1.0, initial_calls=2, initial_usd=0.5)
+    reservation = tracker.reserve(0.4)
+    tracker.finish(reservation, actual_usd=0.4)
+
+    assert tracker.snapshot()["calls"] == 3
+    assert tracker.snapshot()["usd"] == pytest.approx(0.9)
+    with pytest.raises(BudgetExceeded, match="call cap"):
+        tracker.reserve(0)
+
+    spend = BudgetTracker(max_calls=3, max_usd=1.0, initial_usd=0.5)
+    spend.reserve(0.4)
+    with pytest.raises(BudgetExceeded, match="USD cap"):
+        spend.reserve(0.2)
+    spent = BudgetTracker(max_calls=3, max_usd=0.5, initial_usd=0.6)
+    with pytest.raises(BudgetExceeded, match="USD cap"):
+        spent.reserve(0)
+    with pytest.raises(ValueError, match="initial budget usage"):
+        BudgetTracker(initial_calls=-1)
+
+
+def test_shrink_plan_reduces_runs_to_fit_global_call_cap():
+    plan = shrink_plan(
+        cells=20,
+        baseline_runs=30,
+        runs_per_cell=40,
+        min_runs=12,
+        usd=0,
+        max_usd=15,
+        minutes=55.3,
+        max_minutes=180,
+        tasks=4,
+        model_calls=6640,
+        max_total_calls=6000,
+    )
+
+    assert plan["runs_per_cell"] == 30
+    assert plan["model_calls"] == 5040
+    assert plan["notes"] == ["reduced runs/cell to 30"]

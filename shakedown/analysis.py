@@ -12,6 +12,8 @@ from shakedown.stats import (
     holm,
     is_meaningful_effect_ruled_out,
     minimum_detectable_effect,
+    norm_ppf,
+    newcombe_difference_interval,
     two_proportion_test,
     wilson_interval,
 )
@@ -33,7 +35,7 @@ def _per_task(runs: list[dict]) -> dict:
 
 
 def _cost_block(runs: list[dict], baseline_cost_per_success: float | None,
-                baseline_rate: float, meaningful: bool) -> dict:
+                baseline_rate: float, enough_runs: bool) -> dict:
     n = len(runs)
     successes = sum(1 for r in runs if r.get("success"))
     tokens = sum(r.get("prompt_tokens", 0) + r.get("completion_tokens", 0) for r in runs)
@@ -48,7 +50,7 @@ def _cost_block(runs: list[dict], baseline_cost_per_success: float | None,
     if cost_per_success is not None and baseline_cost_per_success:
         ratio = cost_per_success / baseline_cost_per_success
         rate = successes / n if n else 0.0
-        risk = bool(meaningful and abs(rate - baseline_rate) < 0.05 and ratio > 1.5)
+        risk = bool(enough_runs and abs(rate - baseline_rate) < 0.05 and ratio > 1.5)
     return {
         "n": n,
         "tokens_per_run": round(tokens / n, 1) if n else 0,
@@ -75,7 +77,7 @@ def _label(comparison, adjusted_p: float, alpha: float, meaningful_drop: float,
     if is_meaningful_effect_ruled_out(
             comparison.ci_low, comparison.ci_high, meaningful_drop):
         return "dead-weight", (
-            f"95% CI rules out an effect of {meaningful_drop * 100:.0f} pts or more "
+            f"familywise CI rules out an effect of {meaningful_drop * 100:.0f} pts or more "
             f"(interval {comparison.ci_low * 100:.1f} to {comparison.ci_high * 100:.1f} pts)")
     return "inconclusive", f"not significant; MDE {mde * 100:.0f} pts"
 
@@ -113,6 +115,8 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             cell_order.append(cid)
 
     raw_cells = []
+    family_alpha = alpha / max(1, len(cell_order))
+    family_z = norm_ppf(1.0 - family_alpha / 2.0)
     for cid in cell_order:
         group = by_cell.get(cid, [])
         if group:
@@ -125,14 +129,19 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         k = sum(1 for r in group if r["success"])
         verdict, reason = "not-run", "not run (budget or wall-clock cap)"
         comparison = None
-        mde = minimum_detectable_effect(base_rate, max(1, n), n0, alpha)
+        mde = minimum_detectable_effect(base_rate, max(1, n), n0, family_alpha)
+        comparison_data = None
         if n:
             comparison = two_proportion_test(k, n, k0, n0)
-            mde = minimum_detectable_effect(base_rate, n, n0, alpha)
+            ci_low, ci_high = newcombe_difference_interval(k, n, k0, n0, family_z)
+            comparison_data = comparison.as_dict()
+            comparison_data["ci_low"] = ci_low
+            comparison_data["ci_high"] = ci_high
+            mde = minimum_detectable_effect(base_rate, n, n0, family_alpha)
         raw_cells.append({
             "id": cid, "label": label, "kind": kind, "params": params,
             "n": n, "k": k, "rate": (k / n) if n else 0.0,
-            "comparison": comparison.as_dict() if comparison else None,
+            "comparison": comparison_data,
             "mde": mde, "claims": aggregate_claims(group),
             "taxonomy": aggregate_taxonomy(group),
             "per_task": _per_task(group),
@@ -155,11 +164,11 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         if cell["n"] and cell["comparison"]:
             from shakedown.stats import Comparison
             cmp_obj = Comparison(**cell["comparison"])
-            label, reason = _label(cmp_obj, adj, alpha, meaningful_drop, cell["n"], cell["mde"])
-            cell["label"] = label
+            verdict, reason = _label(cmp_obj, adj, alpha, meaningful_drop, cell["n"], cell["mde"])
+            cell["verdict"] = verdict
             cell["reason"] = reason
         else:
-            cell["label"] = verdict
+            cell["verdict"] = verdict
             cell["reason"] = reason
         cell["mde_points"] = round(cell["mde"] * 100, 1)
         cell["delta_points"] = round((cell["comparison"] or {}).get("delta", 0.0) * 100, 1)
@@ -169,7 +178,7 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         ]
         cell["cost"] = _cost_block(
             by_cell.get(cell["id"], []), baseline_cost_per_success, base_rate,
-            cell["n"] >= budget.min_runs_per_cell)
+            cell["n"] >= max(budget.min_runs_per_cell, 8))
         cell.pop("_raw", None)
 
     baseline_claims = aggregate_claims(baseline)
@@ -223,15 +232,18 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         "methods": {
             "interval": "Wilson score interval (95%)",
             "test": "two-proportion z-test, Fisher exact when counts are small",
-            "difference_ci": "Newcombe hybrid score interval",
+            "difference_ci": "Newcombe hybrid score interval with Bonferroni familywise confidence adjustment",
+            "family_confidence": 1.0 - family_alpha,
             "correction": "Holm-Bonferroni" if correction == "holm" else "Benjamini-Hochberg",
-            "corrections_applied_across": len([c for c in raw_cells if c["n"] > 0]),
+            "corrections_applied_across": len(raw_cells),
+            "mde_alpha": family_alpha,
             "mde_power": 0.8,
             "meaningful_drop": meaningful_drop,
             "labels": {
                 "critical": "adjusted p < alpha and a negative delta",
-                "dead-weight": "not significant AND the CI rules out a meaningful drop",
-                "inconclusive": "not significant and the CI is too wide to rule out a meaningful drop",
+                "helpful": "adjusted p < alpha and a positive delta",
+                "dead-weight": "not significant and the full CI rules out meaningful effects in either direction",
+                "inconclusive": "not significant and the CI still includes a meaningful effect",
             },
             "success_check": "executable command exit code (never an LLM judge)",
         },

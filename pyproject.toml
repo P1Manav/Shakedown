@@ -25,10 +25,17 @@ dev = ["pytest>=8.0"]
 shakedown = "shakedown.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["shakedown*"]
+include = ["shakedown*", "tasks*"]
 
 [tool.setuptools.package-data]
 shakedown = ["report/*.j2", "demo_agent/prompt_chunks/*"]
+tasks = [
+  "bugfix_*/task.yaml",
+  "bugfix_*/repo/*.py",
+  "bugfix_*/repo/*.md",
+  "bugfix_*/repo/tests/*.py",
+  "bugfix_*/solution/*.py",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
