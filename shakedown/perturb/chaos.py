@@ -25,6 +25,7 @@ class ChaosPerturbation(Perturbation):
 
         if self.fault == "truncate_output":
             if len(content) <= self.keep_chars:
+                ctx.state.exposure_reason = "tool output is shorter than keep_chars"
                 return content
             return content[: self.keep_chars] + "\n...[tool output truncated]"
 

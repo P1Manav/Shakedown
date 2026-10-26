@@ -66,6 +66,31 @@ def _cost_block(runs: list[dict], baseline_cost_per_success: float | None,
     }
 
 
+def _exposure_block(runs: list[dict], baseline_k: int, baseline_n: int,
+                    z: float) -> dict:
+    tracked = [run for run in runs if "perturbation_applied" in run]
+    exposed = [run for run in tracked if run["perturbation_applied"]]
+    n = len(exposed)
+    k = sum(1 for run in exposed if run.get("success"))
+    comparison = None
+    if n:
+        result = two_proportion_test(k, n, baseline_k, baseline_n)
+        ci_low, ci_high = newcombe_difference_interval(
+            k, n, baseline_k, baseline_n, z
+        )
+        comparison = result.as_dict()
+        comparison["ci_low"] = ci_low
+        comparison["ci_high"] = ci_high
+    return {
+        "tracked_runs": len(tracked),
+        "exposure_rate": len(exposed) / len(tracked) if tracked else None,
+        "n": n,
+        "k": k,
+        "rate": k / n if n else None,
+        "comparison": comparison,
+    }
+
+
 def _label(comparison, adjusted_p: float, alpha: float, meaningful_drop: float,
            n: int, mde: float) -> tuple[str, str]:
     if n == 0:
@@ -149,6 +174,7 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             "n": n, "k": k, "invalid_runs": sum(
                 1 for r in all_by_cell.get(cid, []) if r.get("invalid", False)),
             "rate": (k / n) if n else 0.0,
+            "exposure": _exposure_block(group, k0, n0, family_z),
             "comparison": comparison_data,
             "mde": mde, "claims": aggregate_claims(group),
             "taxonomy": aggregate_taxonomy(all_by_cell.get(cid, [])),
@@ -245,6 +271,10 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             "interval": "Wilson score interval (95%)",
             "test": "two-proportion z-test, Fisher exact when counts are small",
             "difference_ci": "Newcombe hybrid score interval with Bonferroni familywise confidence adjustment",
+            "effect_populations": {
+                "comparison": "intent-to-treat: all valid runs assigned to the cell",
+                "exposure": "runs with an observed perturbation diff, compared with baseline",
+            },
             "family_confidence": 1.0 - family_alpha,
             "correction": "Holm-Bonferroni" if correction == "holm" else "Benjamini-Hochberg",
             "corrections_applied_across": len(raw_cells),

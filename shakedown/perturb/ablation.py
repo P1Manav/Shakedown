@@ -27,15 +27,33 @@ class AblationPerturbation(Perturbation):
     def apply_request(self, payload: dict, ctx) -> dict:
         out = copy.deepcopy(payload)
         if self.target_kind == "system":
+            system_messages = [
+                message for message in out.get("messages", [])
+                if message.get("role") == "system" and isinstance(message.get("content"), str)
+            ]
+            if not any(self.chunk_text in message["content"] for message in system_messages):
+                raise ValueError(
+                    f"chunk {self.chunk_id!r} not found in the outgoing system prompt"
+                )
             for message in out.get("messages", []):
                 if message.get("role") == "system" and isinstance(message.get("content"), str):
                     message["content"] = self._transform_system(message["content"], ctx)
         elif self.target_kind == "tool_description" and self.tool:
+            matched_tool = False
             for tool in out.get("tools", []) or []:
                 fn = tool.get("function", {})
                 if fn.get("name") == self.tool:
+                    matched_tool = True
                     desc = fn.get("description", "") or ""
-                    fn["description"] = "" if self.mode == "remove" else _shuffle_sentences(desc, ctx)
+                    shuffled = _shuffle_sentences(desc, ctx)
+                    if self.mode != "remove" and shuffled == desc and len(
+                            re.findall(r"(?<=[.!?])\s+", desc.strip())) == 0:
+                        ctx.state.exposure_reason = (
+                            "tool description has fewer than two sentences"
+                        )
+                    fn["description"] = "" if self.mode == "remove" else shuffled
+            if not matched_tool:
+                ctx.state.exposure_reason = "target tool description was not provided"
         return out
 
     def _transform_system(self, content: str, ctx) -> str:

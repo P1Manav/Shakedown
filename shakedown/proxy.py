@@ -83,6 +83,16 @@ def _tool_call_index(messages: list[dict]) -> dict[str, tuple[str, dict]]:
     return index
 
 
+def _diff_hash(before: Any, after: Any) -> str:
+    encoded = json.dumps(
+        {"before": before, "after": after},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 class ProxyServer:
     def __init__(self, upstream_base_url: str, store: Store, budget: BudgetTracker,
                  pricing: Pricing, upstream_api_key: str = "local",
@@ -217,15 +227,26 @@ class ProxyServer:
         })
 
         try:
+            ctx.state.exposure_reason = ""
             forwarded = ctx.perturbation.apply_request(payload, ctx)
         except Exception as exc:  # noqa: BLE001 - perturbation failures invalidate the run
             ctx.state.errors.append(f"perturbation failed: {exc}")
             ctx.state.invalid = True
+            self._record_perturbation(ctx, payload, payload, f"perturbation failed: {exc}")
             self.store.append_trace(run_id, {
                 "ts": utc_now(), "event": "perturbation_error",
                 "phase": "request", "error": str(exc),
             })
             return _error(f"perturbation failed: {exc}; run is invalid", 500, "invalid_run")
+        if ctx.perturbation.kind != "chaos":
+            reason = ctx.state.exposure_reason or "perturbation did not change the request"
+            ctx.state.exposure_reason = ""
+            self._record_perturbation(
+                ctx,
+                payload,
+                forwarded,
+                reason,
+            )
         if ctx.fix_line:
             forwarded = _inject_fix(forwarded, ctx.fix_line)
         try:
@@ -317,24 +338,60 @@ class ProxyServer:
         messages = payload.get("messages") or []
         index = _tool_call_index(messages)
         changed = False
+        target_seen = False
         for message in messages:
             if message.get("role") != "tool":
                 continue
             name, args = index.get(message.get("tool_call_id", ""), ("", {}))
             if not name:
                 continue
+            if ctx.perturbation.kind == "chaos" and name == ctx.perturbation.tool:
+                target_seen = True
             content = message.get("content")
             if not isinstance(content, str):
+                if ctx.perturbation.kind == "chaos" and name == ctx.perturbation.tool:
+                    self._record_perturbation(
+                        ctx, None, None, "target tool returned no textual content"
+                    )
                 continue
+            if ctx.perturbation.kind == "chaos" and name == ctx.perturbation.tool:
+                ctx.state.exposure_reason = ""
             new_content = ctx.perturbation.apply_tool_result(name, args, content, ctx)
+            if ctx.perturbation.kind == "chaos" and name == ctx.perturbation.tool:
+                reason = ctx.state.exposure_reason or "tool result was unchanged"
+                ctx.state.exposure_reason = ""
+                self._record_perturbation(
+                    ctx,
+                    content,
+                    new_content,
+                    reason,
+                )
             if new_content != content:
                 message["content"] = new_content
                 changed = True
+        if ctx.perturbation.kind == "chaos" and not target_seen:
+            self._record_perturbation(
+                ctx, None, None, "target tool was never called"
+            )
         if changed:
             self.store.append_trace(ctx.run_id, {
                 "ts": utc_now(), "event": "tool_fault_applied",
                 "perturbation": ctx.perturbation.id})
         return payload
+
+    def _record_perturbation(self, ctx: RunContext, before: Any, after: Any,
+                             reason: str) -> None:
+        applied = before != after
+        diff_hash = _diff_hash(before, after) if applied else ""
+        ctx.state.record_perturbation(applied, diff_hash, reason)
+        self.store.append_trace(ctx.run_id, {
+            "ts": utc_now(),
+            "event": "perturbation",
+            "perturbation": ctx.perturbation.id,
+            "applied": applied,
+            "diff_hash": diff_hash,
+            "reason": "" if applied else reason,
+        })
 
 
 def _inject_fix(payload: dict, fix_line: str) -> dict:

@@ -212,8 +212,13 @@
             <div><span>Δ pass rate</span><strong>{{ "%+.1f"|format(c.delta_points) }} pts</strong></div>
             <div><span>Adjusted p</span><strong>{{ "%.3f"|format(c.p_adjusted) }}</strong></div>
             <div><span>MDE</span><strong>{{ c.mde_points }} pts</strong></div>
+            <div><span>Exposure</span><strong>{% if c.exposure.exposure_rate is not none %}{{ "%.0f"|format(c.exposure.exposure_rate * 100) }}%{% else %}n/a{% endif %}</strong></div>
           </div>
           <p class="cell-note">{{ c.reason }} · familywise Δ CI {{ c.ci_points[0] }} to {{ c.ci_points[1] }} pts</p>
+          {% if c.exposure.comparison %}
+          <p class="cell-note">Exposed runs: {{ c.exposure.k }}/{{ c.exposure.n }} passed
+            · Δ {{ "%+.1f"|format(c.exposure.comparison.delta * 100) }} pts (descriptive)</p>
+          {% endif %}
           <p class="cell-note">{{ c.claims.false_claims }} false claims / {{ c.n }} runs
             ({{ "%.0f"|format(c.claims.false_claim_rate * 100) }}%); {{ c.taxonomy.failed }} failures classified</p>
         </article>

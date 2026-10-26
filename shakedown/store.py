@@ -31,6 +31,10 @@ class RunResult:
     duration_s: float = 0.0
     success: bool = False
     invalid: bool = False
+    perturbation_applied: bool = False
+    perturbation_records: list[dict] = field(default_factory=list)
+    perturbation_diff_hashes: list[str] = field(default_factory=list)
+    exposure_reason: str = ""
     exit_code: int | None = None
     agent_exit: int | None = None
     timed_out: bool = False

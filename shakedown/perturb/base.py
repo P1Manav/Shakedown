@@ -52,4 +52,22 @@ class RunState:
         self.cached_calls = 0
         self.errors: list[str] = []
         self.invalid = False
+        self.perturbation_records: list[dict[str, Any]] = []
+        self.exposure_reason = ""
         self.rng = random.Random(run_id)
+
+    @property
+    def perturbation_applied(self) -> bool:
+        return any(record["applied"] for record in self.perturbation_records)
+
+    def record_perturbation(self, applied: bool, diff_hash: str = "",
+                            reason: str = "") -> None:
+        self.perturbation_records.append({
+            "applied": applied,
+            "diff_hash": diff_hash,
+            "reason": "" if applied else reason,
+        })
+        if applied:
+            self.exposure_reason = ""
+        elif reason and not self.exposure_reason:
+            self.exposure_reason = reason

@@ -135,6 +135,19 @@ class Runner:
         final, actions, events = parse_agent_output(stdout)
         claimed = detect_claim(final)
         stats = ctx.state
+        if not stats.perturbation_applied and not stats.exposure_reason:
+            stats.exposure_reason = "no perturbation opportunity occurred"
+        self.store.append_trace(run_id, {
+            "ts": utc_now(),
+            "event": "perturbation_summary",
+            "perturbation": perturbation.id,
+            "applied": stats.perturbation_applied,
+            "diff_hashes": [
+                record["diff_hash"] for record in stats.perturbation_records
+                if record["diff_hash"]
+            ],
+            "reason": stats.exposure_reason if not stats.perturbation_applied else "",
+        })
         self.proxy.unregister(run_id)
 
         result = RunResult(
@@ -143,6 +156,13 @@ class Runner:
             cell_label=cell_label, cell_kind=cell_kind, params=params or {},
             started_at=started, duration_s=round(duration, 3), success=success,
             invalid=stats.invalid,
+            perturbation_applied=stats.perturbation_applied,
+            perturbation_records=stats.perturbation_records,
+            perturbation_diff_hashes=[
+                record["diff_hash"] for record in stats.perturbation_records
+                if record["diff_hash"]
+            ],
+            exposure_reason=stats.exposure_reason,
             exit_code=test_exit, agent_exit=agent_exit, timed_out=timed_out,
             model_calls=stats.calls, prompt_tokens=stats.prompt_tokens,
             completion_tokens=stats.completion_tokens,
