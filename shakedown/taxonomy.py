@@ -20,6 +20,17 @@ CLASS_LABELS = {
     "none": "Passed",
 }
 
+_CALL_CAP_ERROR = re.compile(
+    r"\b(?:model[- ]?)?call cap (?:reached|hit|exceeded)\b|"
+    r"\b(?:global )?budget cap (?:reached|hit|exceeded)\b",
+    re.IGNORECASE,
+)
+_GAVE_UP_MESSAGE = re.compile(
+    r"\b(unable|cannot|can't|could not|stuck|give up|no such file)\b|"
+    r"\bfailed to (?:fix|solve|complete|resolve)\b",
+    re.IGNORECASE,
+)
+
 
 def _event_names(run: dict) -> list[str]:
     return [str(e.get("event", "")) for e in run.get("events", []) or []]
@@ -42,9 +53,9 @@ def classify_run(run: dict, max_calls: int | None = None) -> str:
     if run.get("timed_out"):
         return "timeout"
 
-    text = ((run.get("error") or "") + " " + (run.get("test_output") or "")).lower()
+    error_text = str(run.get("error") or "")
     events = _event_names(run)
-    if "call cap" in text or "budget" in text and "cap" in text:
+    if _CALL_CAP_ERROR.search(error_text):
         return "call-cap-hit"
     if max_calls and run.get("model_calls", 0) >= max_calls:
         return "call-cap-hit"
@@ -61,9 +72,7 @@ def classify_run(run: dict, max_calls: int | None = None) -> str:
     if run.get("claimed_success"):
         return "false-success"
 
-    if run.get("final_message") and re.search(
-            r"\b(unable|cannot|can't|could not|failed|stuck|give up|no such file)\b",
-            run["final_message"], re.IGNORECASE):
+    if run.get("final_message") and _GAVE_UP_MESSAGE.search(run["final_message"]):
         return "gave-up"
 
     if not run.get("actions"):
