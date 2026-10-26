@@ -10,7 +10,7 @@ from shakedown.spec import BudgetSpec
 from shakedown.stats import (
     benjamini_hochberg,
     holm,
-    is_effect_ruled_out,
+    is_meaningful_effect_ruled_out,
     minimum_detectable_effect,
     two_proportion_test,
     wilson_interval,
@@ -72,10 +72,11 @@ def _label(comparison, adjusted_p: float, alpha: float, meaningful_drop: float,
         return "critical", f"adjusted p={adjusted_p:.4f}; {abs(comparison.delta) * 100:.1f} pt drop"
     if adjusted_p < alpha and comparison.delta > 0:
         return "helpful", f"adjusted p={adjusted_p:.4f}; {comparison.delta * 100:.1f} pt lift"
-    if is_effect_ruled_out(comparison.ci_low, meaningful_drop):
+    if is_meaningful_effect_ruled_out(
+            comparison.ci_low, comparison.ci_high, meaningful_drop):
         return "dead-weight", (
-            f"95% CI rules out a drop of {meaningful_drop * 100:.0f} pts or more "
-            f"(lower bound {comparison.ci_low * 100:.1f} pts)")
+            f"95% CI rules out an effect of {meaningful_drop * 100:.0f} pts or more "
+            f"(interval {comparison.ci_low * 100:.1f} to {comparison.ci_high * 100:.1f} pts)")
     return "inconclusive", f"not significant; MDE {mde * 100:.0f} pts"
 
 

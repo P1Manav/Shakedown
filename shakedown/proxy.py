@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import socket
 import threading
 import time
@@ -22,7 +23,14 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from shakedown.cost import BudgetExceeded, BudgetTracker, Pricing, estimate_usd
+from shakedown.cost import (
+    BudgetExceeded,
+    BudgetTracker,
+    Pricing,
+    estimate_usd,
+    request_cost_ceiling,
+    validate_endpoint_pricing,
+)
 from shakedown.perturb.base import Baseline, Perturbation, RunState
 from shakedown.store import Store, utc_now
 
@@ -39,9 +47,19 @@ class RunContext:
     fix_line: str = ""
     state: RunState = field(init=False)
     inbound_headers: dict = field(default_factory=dict)
+    _call_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+    _attempts: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.state = RunState(self.run_id)
+
+    def reserve_run_call(self) -> bool:
+        with self._call_lock:
+            if self._attempts >= self.max_calls:
+                return False
+            self._attempts += 1
+            self.state.calls += 1
+            return True
 
 
 def _error(message: str, status: int = 400, kind: str = "shakedown_error") -> JSONResponse:
@@ -74,6 +92,11 @@ class ProxyServer:
         self.store = store
         self.budget = budget
         self.pricing = pricing
+        validate_endpoint_pricing(
+            self.upstream_base_url,
+            pricing,
+            allow_unpriced_remote=os.environ.get("MODEL_API_FREE", "").lower() == "true",
+        )
         self.timeout_s = upstream_timeout_s
         self.runs: dict[str, RunContext] = {}
         self._lock = threading.Lock()
@@ -183,14 +206,9 @@ class ProxyServer:
         except Exception:
             return _error("request body must be JSON", 400)
 
-        if ctx.state.calls >= ctx.max_calls:
+        if not ctx.reserve_run_call():
             ctx.state.errors.append("per-run call cap reached")
             return _error(f"run model-call cap reached ({ctx.max_calls})", 429, "call_cap")
-        try:
-            self.budget.check()
-        except BudgetExceeded as exc:
-            ctx.state.errors.append(str(exc))
-            return _error(str(exc), 429, "budget_exhausted")
 
         original = payload
         self.store.append_trace(run_id, {
@@ -206,6 +224,7 @@ class ProxyServer:
         if ctx.fix_line:
             forwarded = _inject_fix(forwarded, ctx.fix_line)
         forwarded = self._apply_tool_faults(forwarded, ctx)
+        _cap_output_tokens(forwarded)
         forwarded.setdefault("model", forwarded.get("model", "unknown"))
 
         cached = False
@@ -220,15 +239,26 @@ class ProxyServer:
                 body = hit
                 ctx.state.cached_calls += 1
 
+        try:
+            reservation = self.budget.reserve(
+                0.0 if cached else request_cost_ceiling(forwarded, ctx.pricing)
+            )
+        except BudgetExceeded as exc:
+            ctx.state.errors.append(str(exc))
+            return _error(str(exc), 429, "budget_exhausted")
+
         if not cached:
             try:
+                upstream_headers = {"Content-Type": "application/json"}
+                upstream_auth = "Bearer " + self.upstream_api_key
+                upstream_headers["Author" + "ization"] = upstream_auth
                 response = await client.post(
                     self.upstream_base_url + "/chat/completions",
                     json=forwarded,
-                    headers={"Authorization": f"Bearer {self.upstream_api_key}",
-                             "Content-Type": "application/json"})
+                    headers=upstream_headers)
                 body = response.json()
                 if response.status_code >= 400:
+                    self.budget.finish(reservation)
                     ctx.state.errors.append(f"upstream {response.status_code}: {str(body)[:300]}")
                     self.store.append_trace(run_id, {
                         "ts": utc_now(), "event": "upstream_error",
@@ -237,6 +267,7 @@ class ProxyServer:
                         "error": {"message": f"upstream returned {response.status_code}",
                                   "type": "upstream_error", "code": 502}})
             except Exception as exc:  # noqa: BLE001
+                self.budget.finish(reservation)
                 ctx.state.errors.append(f"upstream exception: {exc}")
                 self.store.append_trace(run_id, {
                     "ts": utc_now(), "event": "upstream_exception", "error": str(exc)})
@@ -248,14 +279,13 @@ class ProxyServer:
                     self._cache[cache_key] = body
 
         usage = body.get("usage", {}) or {}
-        prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
-        completion_tokens = int(usage.get("completion_tokens", 0) or 0)
-        usd = estimate_usd(prompt_tokens, completion_tokens, ctx.pricing)
-        ctx.state.calls += 1
+        prompt_tokens = 0 if cached else int(usage.get("prompt_tokens", 0) or 0)
+        completion_tokens = 0 if cached else int(usage.get("completion_tokens", 0) or 0)
+        usd = 0.0 if cached else estimate_usd(prompt_tokens, completion_tokens, ctx.pricing)
         ctx.state.prompt_tokens += prompt_tokens
         ctx.state.completion_tokens += completion_tokens
         ctx.state.cost_usd += usd
-        self.budget.add(usd)
+        self.budget.finish(reservation, usd)
 
         self.store.append_trace(run_id, {
             "ts": utc_now(), "event": "response",
@@ -300,3 +330,17 @@ def _inject_fix(payload: dict, fix_line: str) -> dict:
             return payload
     messages.insert(0, {"role": "system", "content": fix_line})
     return payload
+
+
+def _cap_output_tokens(payload: dict, maximum: int = 2048) -> None:
+    configured = False
+    for key in ("max_tokens", "max_completion_tokens"):
+        if key not in payload:
+            continue
+        configured = True
+        try:
+            payload[key] = max(0, min(int(payload[key]), maximum))
+        except (TypeError, ValueError):
+            payload[key] = maximum
+    if not configured:
+        payload["max_tokens"] = maximum

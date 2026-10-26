@@ -270,21 +270,40 @@ def minimum_detectable_effect(baseline_p: float, n_treat: int, n_ctrl: int,
         raise ValueError("sample sizes must be non-negative")
     if n_treat == 0 or n_ctrl == 0:
         return 1.0
-    baseline_p = min(max(baseline_p, 1e-6), 1 - 1e-6)
-    lo, hi = 0.0, min(baseline_p, 0.999)
-    for _ in range(80):
-        mid = (lo + hi) / 2.0
-        achieved = _power_two_prop(baseline_p - mid, baseline_p, n_treat, n_ctrl, alpha)
-        if achieved >= power:
-            hi = mid
-        else:
-            lo = mid
-    return hi
+    effects = []
+    for direction, available in ((-1.0, baseline_p), (1.0, 1.0 - baseline_p)):
+        if available <= 0.0:
+            continue
+        if _power_two_prop(baseline_p + direction * available, baseline_p,
+                           n_treat, n_ctrl, alpha) < power:
+            continue
+        lo, hi = 0.0, available
+        for _ in range(80):
+            mid = (lo + hi) / 2.0
+            achieved = _power_two_prop(
+                baseline_p + direction * mid, baseline_p, n_treat, n_ctrl, alpha
+            )
+            if achieved >= power:
+                hi = mid
+            else:
+                lo = mid
+        effects.append(hi)
+    return min(effects, default=1.0)
 
 
 def is_effect_ruled_out(ci_low: float, meaningful_drop: float) -> bool:
     """True when the CI is tight enough to exclude a meaningful drop."""
     return ci_low > -meaningful_drop
+
+
+def is_meaningful_effect_ruled_out(ci_low: float, ci_high: float,
+                                   meaningful_effect: float) -> bool:
+    """True when the full interval excludes meaningful changes in either direction."""
+    if not -1.0 <= ci_low <= ci_high <= 1.0:
+        raise ValueError("difference interval must satisfy -1 <= low <= high <= 1")
+    if not 0.0 <= meaningful_effect <= 1.0:
+        raise ValueError("meaningful_effect must be in [0, 1]")
+    return ci_low > -meaningful_effect and ci_high < meaningful_effect
 
 
 # ---------------------------------------------------------------------------
@@ -391,7 +410,7 @@ def sequential_decision(k_treat: int, n_treat: int, k_ctrl: int, n_ctrl: int,
         return SequentialResult("stop_effect",
                                 f"p={cmp.p_value:.4f} < {alpha_look:.4f} at look {look}",
                                 adjusted_p, ci_low, ci_high, alpha_look, look)
-    if is_effect_ruled_out(ci_low, meaningful_drop):
+    if is_meaningful_effect_ruled_out(ci_low, ci_high, meaningful_drop):
         return SequentialResult("stop_negligible",
                                 f"simultaneous CI lower {ci_low * 100:.1f} pts rules out a {meaningful_drop * 100:.0f} pt drop",
                                 adjusted_p, ci_low, ci_high, alpha_look, look)

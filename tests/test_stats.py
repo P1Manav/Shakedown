@@ -6,6 +6,7 @@ from shakedown.stats import (
     benjamini_hochberg,
     fisher_exact_two_sided,
     holm,
+    is_meaningful_effect_ruled_out,
     minimum_detectable_effect,
     newcombe_difference_interval,
     norm_ppf,
@@ -120,6 +121,17 @@ def test_mde_shrinks_with_more_runs():
     assert 0.0 < large < 0.12
 
 
+def test_mde_is_defined_at_rate_boundaries():
+    assert minimum_detectable_effect(0.0, 100, 100) > 0
+    assert minimum_detectable_effect(1.0, 100, 100) > 0
+
+
+def test_equivalence_requires_the_full_interval_to_be_tight():
+    assert is_meaningful_effect_ruled_out(-0.05, 0.05, 0.10)
+    assert not is_meaningful_effect_ruled_out(0.02, 0.20, 0.10)
+    assert not is_meaningful_effect_ruled_out(-0.20, -0.02, 0.10)
+
+
 def test_sequential_stops_on_strong_effect():
     # 30/60 vs 50/60 is a huge difference; should stop for effect.
     result = sequential_decision(30, 60, 50, 60, min_runs=8, look=3)
@@ -155,6 +167,13 @@ def test_sequential_negligible_uses_simultaneous_look_interval():
     assert ordinary.ci_low > -0.10
     assert result.ci_low < -0.10
     assert result.decision == "continue"
+
+
+def test_sequential_does_not_call_a_large_positive_lift_negligible():
+    result = sequential_decision(
+        150, 200, 100, 200, min_runs=100, meaningful_drop=0.10, max_looks=8
+    )
+    assert result.decision != "stop_negligible"
 
 
 @pytest.mark.parametrize("operation", [
