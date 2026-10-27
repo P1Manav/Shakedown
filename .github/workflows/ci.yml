@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     strategy:
@@ -17,13 +21,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
       - name: Install development dependencies
         run: python -m pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests scripts
       - name: Unit tests
         run: python -m pytest
       - name: Benchmark self-test
         run: python -m shakedown selftest
-      - name: Lint
-        run: ruff check src tests scripts
       - name: Build and smoke-test clean wheel install
         run: python scripts/wheel_smoke.py

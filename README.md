@@ -1,5 +1,6 @@
 # Shakedown
 
+[![CI](https://github.com/P1Manav/Shakedown/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/Shakedown/actions/workflows/ci.yml)
 [![Interactive Report](https://img.shields.io/badge/Report-Live%20Demo-brightgreen)](https://p1manav.github.io/Shakedown/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](pyproject.toml)

@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 from shakedown import cli
@@ -149,8 +148,6 @@ def test_cmd_check_defaults_to_configured_runs_when_omitted(tmp_path):
     experiment_id = "test-check-default-runs"
     runs_dir = tmp_path / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
-
-    captured_budget = {}
 
     def fake_execute_run(args, cells, exp_id):
         store = Store(exp_id, runs_dir)
