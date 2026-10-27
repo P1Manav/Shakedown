@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from shakedown.runner import Runner
+from shakedown.runner import Runner, parse_proxy_trace
 from shakedown.store import Store
 
 
@@ -16,6 +16,26 @@ class TraceProxy:
 
     def unregister(self, run_id):
         pass
+
+
+def test_proxy_trace_metrics_parse_demo_agent_text_tool_calls():
+    metrics = parse_proxy_trace([
+        {
+            "event": "response",
+            "body": {"choices": [{"message": {
+                "content": '{"name":"read_file","arguments":{"path":"calc.py"}}',
+            }}]},
+        },
+        {
+            "event": "response",
+            "body": {"choices": [{"message": {"content": "DONE: fixed the bug"}}]},
+        },
+    ])
+
+    assert metrics["steps"] == 1
+    assert metrics["actions"] == ["read_file:calc.py"]
+    assert metrics["normalized_actions"] == ['read_file({"path":"calc.py"})']
+    assert metrics["final_message"] == "DONE: fixed the bug"
 
 
 def test_runner_derives_agent_metrics_from_proxy_trace_not_stdout_markers(

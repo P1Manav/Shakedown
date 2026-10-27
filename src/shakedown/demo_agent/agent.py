@@ -120,6 +120,11 @@ def parse_text_tool_call(content: str, step: int) -> dict | None:
         return None
     text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE).strip()
     candidates = [text]
+    for block in re.findall(r"```(?:json)?\s*(.*?)```", text, flags=re.IGNORECASE | re.DOTALL):
+        try:
+            candidates.append(ast.literal_eval(block.strip()))
+        except (SyntaxError, ValueError):
+            continue
     # Scan for embedded objects too: models sometimes wrap a call in prose.
     decoder = json.JSONDecoder()
     for start in [i for i, ch in enumerate(text) if ch == "{"]:

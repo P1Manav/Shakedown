@@ -227,6 +227,13 @@ def parse_proxy_trace(trace: list[dict]) -> dict:
                 calls.extend(message.get("tool_calls") or [])
 
         text = "".join(response_text).strip()
+        if text and not calls:
+            from shakedown.demo_agent.agent import parse_text_tool_call
+
+            text_call = parse_text_tool_call(text, len(actions))
+            if text_call:
+                calls.append(text_call)
+                text = ""
         if text:
             final_message = text
         for call in calls:
