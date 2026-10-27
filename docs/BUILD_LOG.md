@@ -62,6 +62,37 @@
 
 **Observed smoke results:** The 12-run baseline was 5/12 (41.7%; Wilson 95% CI 19.3–68.0%). All 20 perturbation cells were correctly labeled inconclusive after Holm correction; the cell MDE was 56.7 points. The empty-result fault had 0/12 passes and 5/12 false-success claims, while truncation had the same 5/12 pass rate as baseline and 1/12 false-success claims. These are exploratory observations, not significant effects; no fix rerun was warranted. The demo did not reproduce the aspirational truncated-output story.
 
-**Spend:** $0.00 across 252 runs, 1,181 model calls, and 1,366,682 tokens using local `qwen2.5-coder:7b`. No API key or `.env` file was used.
-
 **Next:** Run the adaptive grid at up to 30 runs per cell to improve power before treating any perturbation as a finding. Optional cross-agent proof and model-size comparison remain out of scope for release validation.
+
+## Checkpoint 8 — Audit and v0.3.0 Release Hardening
+
+**CI and Portability:**
+- Fixed all cross-platform failures across the 6-matrix GitHub Actions CI pipeline (Ubuntu, macOS, Windows on Python 3.11 and 3.12).
+- Placed lint step first for fast failure, added pip wheel caching, concurrency cancel-in-progress, and dynamic ephemeral port binding in wheel smoke testing.
+- Added CI status badge to README.
+
+**Fault Semantics & Scheduler:**
+- Hardened `error_once` to fire once per run per tool name while maintaining replay stability across identical tool call IDs.
+- Converted `empty_result` and `renamed_path` to transient by default with separate explicit persistent variants (`persist: true`).
+- Included `added_latency` and Tier 3 input noise cells (`noise:reorder_tools`, `noise:typos`, `noise:paraphrase`) in the full grid.
+
+**Statistical Rigor & Exposure Tracking:**
+- Implemented an exact conditional stratified test (convolution of per-stratum hypergeometric distributions ordered by probability) for small strata, verified against numerical regression baselines.
+- Exposed per-cell exposure tracking (exposed runs, exposure rate, and effect on exposed runs alongside intent-to-treat). Cells with <80% exposure are conservatively labeled "insufficient exposure".
+
+**Verification Hardening:**
+- Verification workspace strips all `__pycache__` and `*.pyc` files, executes under `PYTHONSAFEPATH=1` and `PYTHONDONTWRITEBYTECODE=1`, performs case-insensitive casefold path comparisons, and detects any newly added top-level files that shadow installed modules.
+- Added isolated `hidden_tests/` across all bundled tasks, verified against agents hardcoding visible assertions.
+- Replaced secret name blocklists with an explicit environment variable allowlist.
+
+**Decoupled Architecture & BYOA:**
+- Decoupled `tool_parser.py` from demo agent; runner does not depend on the demo agent.
+- Created `examples/bring_your_own_agent/agent.py` (~45 lines) and validated it with CI test `tests/test_byoa_loop.py` against a mock upstream server.
+- Removed obfuscation in proxy authentication, used SPDX `license = "MIT"` with `license-files = ["LICENSE"]`.
+
+**Real Regenerated Benchmark Data:**
+- Selected `llama3.1:8b-instruct-q4_K_M` via local Ollama ($0.00 spend) after comparative model piloting.
+- Executed the full adaptive grid across 4 tasks and 27 cells: 216 runs, 2,510 model calls, 4.05M tokens, $0.00 spend, 0 invalid runs (0.0%). Baseline reliability: 4/8 = 50.0% (Wilson 95% CI [21.5, 78.5]).
+- Evaluated the automated fix loop on top fragility `remove identity` with an equal-N interleaved no-fix control (8 control vs 8 fix runs): observed lift +50.0 pts (25% to 75%, p=0.1319, MDE=57.2 pts), reported honestly as "no statistically significant lift".
+- Updated `examples/sample_analysis.json`, `examples/sample_report.html`, `docs/index.html`, and `docs/assets/report.png`. Built `scripts/render_results.py` and regression test `tests/test_readme_results.py`.
+

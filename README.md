@@ -84,36 +84,43 @@ python -m shakedown estimate
 
 ## Results from the Committed Sample Run
 
-The following results come directly from the committed benchmark run in [`examples/sample_analysis.json`](examples/sample_analysis.json) (252 runs across 4 tasks on `qwen2.5-coder:7b`, 0 model calls, zero external tokens, $0.00 spend):
+The following results come directly from the committed benchmark run in [`examples/sample_analysis.json`](examples/sample_analysis.json) (216 runs across 4 tasks on `llama3.1:8b-instruct-q4_K_M`, 2,510 model calls, 4.05M tokens, $0.00 spend):
 
 | Condition / Cell | Type | Pass Rate | Δ vs Base | Raw p | Adjusted p (Holm) | Formally Conclusive? |
 |---|---|---|---|---|---|---|
-| **Baseline (no perturbation)** | Baseline | 5/12 (41.7%) | — | — | — | Wilson 95%: [19.3%, 68.0%] |
-| `empty_result → read_file` | Chaos | 0/12 (0.0%) | -41.7 pts | 0.051 | 0.306 | Inconclusive |
-| `remove identity` | Ablation | 1/12 (8.3%) | -33.3 pts | 0.153 | 1.000 | Inconclusive |
-| `remove workflow` | Ablation | 1/12 (8.3%) | -33.3 pts | 0.153 | 1.000 | Inconclusive |
-| `renamed_path → read_file` | Chaos | 1/12 (8.3%) | -33.3 pts | 0.171 | 0.855 | Inconclusive |
-| `shuffle tool_write_file` | Ablation | 3/12 (25.0%) | -16.7 pts | 0.673 | 1.000 | Inconclusive |
-| `remove tool_run_tests` | Ablation | 3/12 (25.0%) | -16.7 pts | 0.673 | 1.000 | Inconclusive |
-| `shuffle identity` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
-| `remove verification` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
-| `remove tool_read_file` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
-| `shuffle tool_run_tests` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
-| `remove tool_list_dir` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
-| `malformed_json → run_tests` | Chaos | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
-| `error_once → write_file` | Chaos | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
-| `shuffle workflow` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
-| `shuffle verification` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
-| `shuffle tool_read_file` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
-| `remove tool_write_file` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
-| `shuffle tool_list_dir` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
-| `truncate_output → run_tests` | Chaos | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
-| `stale_file → read_file` | Chaos | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| **Baseline (no perturbation)** | Baseline | 4/8 (50.0%) | — | — | — | Wilson 95%: [21.5%, 78.5%] |
+| `remove identity` | Ablation | 0/8 (0.0%) | -50.0 pts | 0.083 | 1.000 | Inconclusive |
+| `renamed_path → read_file` | Chaos | 0/8 (0.0%) | -50.0 pts | 0.083 | 0.750 | Inconclusive |
+| `renamed_path → read_file (persist=True)` | Chaos | 0/8 (0.0%) | -50.0 pts | 0.083 | 0.750 | Inconclusive |
+| `shuffle tool_list_dir` | Ablation | 1/8 (12.5%) | -37.5 pts | 0.250 | 1.000 | Inconclusive |
+| `remove workflow` | Ablation | 1/8 (12.5%) | -37.5 pts | 0.278 | 1.000 | Inconclusive |
+| `empty_result → read_file` | Chaos | 1/8 (12.5%) | -37.5 pts | 0.278 | 1.000 | Inconclusive |
+| `empty_result → read_file (persist=True)` | Chaos | 1/8 (12.5%) | -37.5 pts | 0.278 | 1.000 | Inconclusive |
+| `remove tool_read_file` | Ablation | 1/8 (12.5%) | -37.5 pts | 0.333 | 1.000 | Inconclusive |
+| `remove tool_write_file` | Ablation | 1/8 (12.5%) | -37.5 pts | 0.333 | 1.000 | Inconclusive |
+| `error_once → write_file` | Chaos | 1/8 (12.5%) | -37.5 pts | 0.333 | 1.000 | Inconclusive |
+| `noise: paraphrase` | Noise | 1/8 (12.5%) | -37.5 pts | 0.333 | 1.000 | Inconclusive |
+| `remove tool_list_dir` | Ablation | 2/8 (25.0%) | -25.0 pts | 0.583 | 1.000 | Inconclusive |
+| `shuffle identity` | Ablation | 2/8 (25.0%) | -25.0 pts | 0.593 | 1.000 | Inconclusive |
+| `truncate_output → run_tests (keep_chars=200)` | Chaos | 2/8 (25.0%) | -25.0 pts | 0.593 | 1.000 | Inconclusive |
+| `remove verification` | Ablation | 2/8 (25.0%) | -25.0 pts | 0.625 | 1.000 | Inconclusive |
+| `added_latency → read_file (delay_ms=500)` | Chaos | 2/8 (25.0%) | -25.0 pts | 0.625 | 1.000 | Inconclusive |
+| `shuffle verification` | Ablation | 2/8 (25.0%) | -25.0 pts | 0.639 | 1.000 | Inconclusive |
+| `remove tool_run_tests` | Ablation | 2/8 (25.0%) | -25.0 pts | 0.639 | 1.000 | Inconclusive |
+| `shuffle workflow` | Ablation | 3/8 (37.5%) | -12.5 pts | 1.000 | 1.000 | Inconclusive |
+| `shuffle tool_write_file` | Ablation | 3/8 (37.5%) | -12.5 pts | 1.000 | 1.000 | Inconclusive |
+| `stale_file → read_file` | Chaos | 3/8 (37.5%) | -12.5 pts | 1.000 | 1.000 | Inconclusive |
+| `noise: reorder_tools` | Noise | 3/8 (37.5%) | -12.5 pts | 1.000 | 1.000 | Inconclusive |
+| `noise: typos` | Noise | 3/8 (37.5%) | -12.5 pts | 1.000 | 1.000 | Inconclusive |
+| `shuffle tool_read_file` | Ablation | 4/8 (50.0%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `malformed_json → run_tests` | Chaos | 4/8 (50.0%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `shuffle tool_run_tests` | Ablation | 4/8 (50.0%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
 
 ### What this teaches us:
-1. **Uncertainty is honest:** While `empty_result` caused a steep drop (0/12 vs 5/12 baseline), Holm multiple-testing correction across the chaos family correctly flags this as inconclusive ($p_{adj} = 0.306$). Shakedown refuses to fabricate statistical significance on small samples.
-2. **Silent Failure Detection:** Under `empty_result → read_file`, **5 of the 12 failing runs falsely claimed success to the user** (claiming the bug was fixed despite zero edits and failing test suites).
-3. **Robustness to Truncation:** When `run_tests` output was truncated to 200 characters, the agent's pass rate was completely identical to baseline (41.7%), demonstrating resilience to truncated tool returns.
+1. **Uncertainty is honest:** While removing `identity` caused a steep drop (0/8 vs 4/8 baseline, -50.0 pts), Holm multiple-testing correction across the ablation family correctly flags this as inconclusive ($p_{raw} = 0.083, p_{adj} = 1.000$). Shakedown refuses to fabricate statistical significance on small samples.
+2. **Silent Failure Detection:** Under `remove identity`, **5 of the 8 failing runs falsely claimed success to the user** (claiming the bug was fixed despite zero passing test suites). Under `empty_result → read_file`, 2 of 7 failing runs falsely claimed success.
+3. **Resilience to Noise & Faults:** Under tool reordering and typos, pass rate remained at 37.5% (-12.5 pts, p = 1.000), and `malformed_json → run_tests` had a 0.0 pt delta (4/8, 50.0%), demonstrating agent resilience to malformed runner responses.
+4. **Fix Loop Evaluation:** When testing a generated fix against the top fragility (`remove identity`), an equal-N interleaved experiment (8 control vs 8 fix runs) measured an observed lift from 25% (2/8) to 75% (6/8) (+50.0 pts), with $p = 0.1319$ and MDE = 57.2 pts. Because MDE exceeded the sample power, Shakedown rigorously reports "no statistically significant lift".
 
 ---
 

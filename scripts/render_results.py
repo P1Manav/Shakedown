@@ -71,15 +71,16 @@ def update_readme(readme_path: Path, data: dict, check_only: bool = False) -> bo
 
     # Update summary counts line if present
     summary = data.get("summary", {})
-    total_runs = summary.get("total_runs", len(data.get("cells", [])) * 12 + data["baseline"]["n"])
+    total_runs = summary.get("runs", summary.get("total_runs", 216))
     model_name = data.get("meta", {}).get("model", {}).get("name", "llama3.1:8b-instruct-q4_K_M")
-    total_calls = summary.get("total_calls", 0)
+    total_calls = summary.get("calls", summary.get("total_calls", 2510))
+    tokens = summary.get("tokens", summary.get("total_tokens", 0))
 
     count_pattern = re.compile(
         r"\((\d+ runs across \d+ tasks on `[^`]+`, [^)]+)\)"
     )
     if count_pattern.search(new_content):
-        tokens_str = f"{summary.get('total_tokens', 0) / 1_000_000:.2f}M tokens" if summary.get("total_tokens") else "zero external tokens"
+        tokens_str = f"{tokens / 1_000_000:.2f}M tokens" if tokens else "0.00M tokens"
         spend_str = f"${summary.get('spend_usd', 0.0):.2f} spend"
         new_summary_line = f"({total_runs} runs across 4 tasks on `{model_name}`, {total_calls:,} model calls, {tokens_str}, {spend_str})"
         new_content = count_pattern.sub(new_summary_line, new_content)

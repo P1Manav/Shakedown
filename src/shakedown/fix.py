@@ -252,6 +252,9 @@ def rank_fix_first(cells: list[dict], baseline_rate: float, task_chunks: dict) -
         if verdict == "critical":
             score += max(0.0, -delta_points) + 15
             reasons.append(f"{abs(delta_points):.0f} pt drop")
+        elif delta_points < 0:
+            score += max(0.0, -delta_points)
+            reasons.append(f"{abs(delta_points):.0f} pt drop")
         if false_rate >= 0.10 and cell.get("significant"):
             score += false_rate * 45
             reasons.append(f"{false_rate * 100:.0f}% false claims")

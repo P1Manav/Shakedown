@@ -406,4 +406,13 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             "success_check": "executable command exit code (never an LLM judge)",
         },
     }
+    if meta.get("fix_experiments"):
+        latest_fix_id = meta["fix_experiments"][-1]
+        try:
+            fix_store = Store(latest_fix_id, store.dir.parent)
+            fix_analysis = fix_store.read_json("analysis.json", {}) or {}
+            if "fix" in fix_analysis:
+                analysis["fix"] = fix_analysis["fix"]
+        except Exception:
+            pass
     return analysis
