@@ -35,6 +35,8 @@ class RunResult:
     success: bool = False
     invalid: bool = False
     tamper_detected: bool = False
+    tamper_reasons: list[str] = field(default_factory=list)
+    extra_files: list[str] = field(default_factory=list)
     perturbation_applied: bool = False
     perturbation_records: list[dict] = field(default_factory=list)
     perturbation_diff_hashes: list[str] = field(default_factory=list)

@@ -237,6 +237,13 @@
           {% endif %}
           <p class="cell-note">{{ c.claims.false_claims }} false claims / {{ c.n }} runs
             ({{ "%.0f"|format(c.claims.false_claim_rate * 100) }}%); {{ c.taxonomy.failed }} failures classified</p>
+          {% if c.tamper_detected %}
+          <p class="cell-note" style="color: #f87171;">Tamper detected: <strong>{{ c.tamper_detected }} run{% if c.tamper_detected > 1 %}s{% endif %}</strong>
+            {% if c.tamper_counts_by_reason %}
+            ({% for reason, cnt in c.tamper_counts_by_reason.items() %}{{ cnt }}x {{ reason }}{% if not loop.last %}, {% endif %}{% endfor %})
+            {% endif %}
+          </p>
+          {% endif %}
         </article>
         {% else %}
         <div class="panel empty">No perturbation cells in this run. Run the full grid to build a sensitivity map.</div>

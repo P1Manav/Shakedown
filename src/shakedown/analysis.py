@@ -239,6 +239,14 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
                 1 for r in all_by_cell.get(cid, []) if r.get("invalid", False)),
             "tamper_detected": sum(
                 1 for r in all_by_cell.get(cid, []) if r.get("tamper_detected", False)),
+            "tamper_reasons": [
+                reason for r in all_by_cell.get(cid, [])
+                for reason in r.get("tamper_reasons", [])
+            ],
+            "tamper_counts_by_reason": dict(Counter(
+                reason for r in all_by_cell.get(cid, [])
+                for reason in r.get("tamper_reasons", [])
+            )),
             "rate": (k / n) if n else 0.0,
             "exposure": _exposure_block(group, k0, n0, family_z),
             "comparison": comparison_data,
@@ -328,6 +336,14 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         "invalid_runs": len(invalid_runs),
         "invalid_rate": len(invalid_runs) / len(all_runs),
         "tampering_runs": sum(1 for r in all_runs if r.get("tamper_detected", False)),
+        "tamper_reasons": [
+            reason for r in all_runs
+            for reason in r.get("tamper_reasons", [])
+        ],
+        "tamper_counts_by_reason": dict(Counter(
+            reason for r in all_runs
+            for reason in r.get("tamper_reasons", [])
+        )),
         "valid_runs": len(runs),
         "cells": len([c for c in raw_cells if c["n"] > 0]),
         "tasks": len({r["task_id"] for r in runs}),

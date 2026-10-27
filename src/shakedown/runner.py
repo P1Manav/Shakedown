@@ -7,18 +7,19 @@ and an executable success check that runs *after* the agent exits.
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import hashlib
 import os
 import signal
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import uuid
 from pathlib import Path
+from typing import NamedTuple
 
 from shakedown.claims import detect_claim
 from shakedown.perturb.base import Perturbation
@@ -32,6 +33,29 @@ _PROTECTED_CONFIGS = {
     "pytest.ini", "tox.ini", "setup.cfg", "setup.py", "pyproject.toml",
     "conftest.py", "sitecustomize.py", "pytest.py",
 }
+
+_PYTEST_DEPENDENCIES = {
+    "pytest", "pluggy", "iniconfig", "packaging", "_pytest", "py",
+    "colorama", "coverage", "mock", "exceptiongroup", "tomli", "test",
+}
+_STDLIB_MODULE_NAMES = set(getattr(sys, "stdlib_module_names", set()))
+_SHADOW_COLLISION_NAMES = frozenset(
+    name.lower()
+    for name in (
+        _STDLIB_MODULE_NAMES | _PYTEST_DEPENDENCIES | {
+            "test", "statistics", "pluggy", "sitecustomize", "usercustomize",
+        }
+    )
+)
+
+
+class VerificationRestoreResult(NamedTuple):
+    tamper_detected: bool
+    tamper_reasons: list[str]
+    extra_files: list[str]
+
+    def __bool__(self) -> bool:
+        return bool(self.tamper_detected)
 
 
 def _is_env_allowed(key: str) -> bool:
@@ -77,7 +101,7 @@ def _restore_verification_workspace(
     pristine: dict[Path, bytes],
     hidden_tests_dir: Path | None = None,
     task_source: Path | None = None,
-) -> bool:
+) -> VerificationRestoreResult:
     shutil.copytree(workdir, verification)
 
     # 1. Delete all __pycache__ and *.pyc
@@ -89,29 +113,39 @@ def _restore_verification_workspace(
         except OSError:
             pass
 
-    # 2. Compare protected paths case-insensitively (casefold)
     pristine_by_cf = {str(p).casefold(): (p, content) for p, content in pristine.items()}
     actual_protected_files = [
         p for p in verification.rglob("*")
         if p.is_file() and _is_protected(p.relative_to(verification))
     ]
     tampered = False
+    tamper_reasons: list[str] = []
+    extra_files: list[str] = []
+
+    # 2. Check pre-existing protected files for modifications
     for p in actual_protected_files:
         rel = p.relative_to(verification)
         rel_cf = str(rel).casefold()
         if rel_cf not in pristine_by_cf:
-            tampered = True
+            # Adding NEW files (e.g. tests/test_extra.py) is NOT tampering:
+            # record in extra_files, never force the run to fail for them.
+            rel_str = str(rel).replace("\\", "/")
+            if rel_str not in extra_files:
+                extra_files.append(rel_str)
         else:
-            _, expected_content = pristine_by_cf[rel_cf]
+            orig_rel, expected_content = pristine_by_cf[rel_cf]
             if p.read_bytes() != expected_content:
                 tampered = True
+                tamper_reasons.append(f"modified protected file: {orig_rel}")
 
     actual_cf_set = {str(p.relative_to(verification)).casefold() for p in actual_protected_files}
-    for rel_cf in pristine_by_cf:
+    for rel_cf, (orig_rel, _) in pristine_by_cf.items():
         if rel_cf not in actual_cf_set:
             tampered = True
+            tamper_reasons.append(f"deleted protected file: {orig_rel}")
 
-    # 3. Reject ANY new top-level .py/dir that shadows an installed module name
+    # 3. Deterministic shadow protection:
+    # Reject ANY new top-level .py/dir that shadows stdlib or pytest dependencies
     allowed_top_level = {p.parts[0].casefold() for p in pristine}
     if task_source and Path(task_source).exists():
         allowed_top_level.update({p.name.casefold() for p in Path(task_source).iterdir()})
@@ -120,19 +154,10 @@ def _restore_verification_workspace(
     for item in list(verification.iterdir()):
         name_cf = item.name.casefold()
         if name_cf not in allowed_top_level:
-            stem = item.stem if item.is_file() and item.suffix == ".py" else item.name
-            is_shadowing = False
-            try:
-                spec = importlib.util.find_spec(stem)
-                if spec is not None and spec.origin:
-                    spec_path = Path(spec.origin).resolve()
-                    if not spec_path.is_relative_to(verification.resolve()):
-                        is_shadowing = True
-            except (ValueError, ImportError, AttributeError):
-                is_shadowing = False
-
-            if is_shadowing:
+            stem = item.stem.lower() if item.is_file() and item.suffix == ".py" else item.name.lower()
+            if stem in _SHADOW_COLLISION_NAMES:
                 tampered = True
+                tamper_reasons.append(f"shadowed module: {item.name}")
                 if item.is_dir():
                     shutil.rmtree(item, ignore_errors=True)
                 else:
@@ -140,6 +165,10 @@ def _restore_verification_workspace(
                         item.unlink(missing_ok=True)
                     except OSError:
                         pass
+            else:
+                rel_str = item.name.replace("\\", "/")
+                if rel_str not in extra_files:
+                    extra_files.append(rel_str)
 
     # 4. Clean tests/ and restore pristine protected files
     tests_dir = verification / "tests"
@@ -173,7 +202,7 @@ def _restore_verification_workspace(
         except OSError:
             pass
 
-    return tampered
+    return VerificationRestoreResult(tampered, tamper_reasons, extra_files)
 
 
 def _kill_tree(proc: subprocess.Popen) -> None:
@@ -458,17 +487,19 @@ class Runner:
         if verification.exists():
             shutil.rmtree(verification, ignore_errors=True)
         hidden_tests = task.path.parent / "hidden_tests"
-        tamper_detected = _restore_verification_workspace(
+        tamper_res = _restore_verification_workspace(
             workdir, verification, pristine_protected,
             hidden_tests_dir=hidden_tests if hidden_tests.exists() else None,
             task_source=task.source,
         )
+        tamper_detected = tamper_res.tamper_detected
+        tamper_reasons = tamper_res.tamper_reasons
+        extra_files = tamper_res.extra_files
+
         verification_env = dict(env)
         verification_env["PYTHONDONTWRITEBYTECODE"] = "1"
         verification_env["PYTHONSAFEPATH"] = "1"
-        verification_env["PYTHONPATH"] = str(verification) + (
-            os.pathsep + env.get("PYTHONPATH", "") if env.get("PYTHONPATH") else ""
-        )
+        verification_env["PYTHONPATH"] = str(verification)
         test_exit, test_out, test_err, test_timeout = run_command(
             task.success_command, verification, verification_env, task.success_timeout_s)
         success = (not tamper_detected and not test_timeout and test_exit == 0)
@@ -499,6 +530,8 @@ class Runner:
             started_at=started, duration_s=round(duration, 3), success=success,
             invalid=stats.invalid,
             tamper_detected=tamper_detected,
+            tamper_reasons=tamper_reasons,
+            extra_files=extra_files,
             perturbation_applied=stats.perturbation_applied,
             perturbation_records=stats.perturbation_records,
             perturbation_diff_hashes=[
@@ -533,6 +566,8 @@ class Runner:
             "ts": utc_now(),
             "event": "verification",
             "tamper_detected": tamper_detected,
+            "tamper_reasons": tamper_reasons,
+            "extra_files": extra_files,
             "test_exit": test_exit,
             "test_timeout": test_timeout,
         })
