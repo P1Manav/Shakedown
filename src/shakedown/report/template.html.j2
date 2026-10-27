@@ -84,7 +84,7 @@
     .legend span:before { content: ""; display: inline-block; width: 7px; height: 7px;
       border-radius: 50%; background: currentColor; margin-right: 5px; }
     .legend .lg-critical { color: var(--critical); } .legend .lg-clear { color: var(--helpful); }
-    .legend .lg-open { color: var(--warning); }
+    .legend .lg-open { color: var(--warning); } .legend .lg-insufficient { color: #8892b0; }
     .heatmap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
     .heat-cell { min-width: 0; border: 1px solid var(--line); background: var(--surface);
       border-radius: 14px; padding: 14px; position: relative; overflow: hidden; }
@@ -94,6 +94,7 @@
     .heat-cell.helpful { --meter-color: var(--helpful); }
     .heat-cell.dead-weight { --meter-color: var(--accent); }
     .heat-cell.inconclusive, .heat-cell.not-run { --meter-color: var(--warning); }
+    .heat-cell.insufficient-exposure { --meter-color: #8892b0; }
     .cell-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
     .kind { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
     .verdict { color: var(--meter-color); font-size: 10px; font-weight: 800; text-transform: uppercase; }
@@ -199,7 +200,7 @@
         <div><h2 id="heatmap-title">Sensitivity heatmap</h2>
           <p>Success under each controlled perturbation. {{ a.summary.correction }}.</p></div>
         <div class="legend"><span class="lg-critical">Critical</span><span class="lg-clear">No meaningful effect</span>
-          <span class="lg-open">Inconclusive</span></div>
+          <span class="lg-open">Inconclusive</span><span class="lg-insufficient">Insufficient exposure</span></div>
       </div>
       <div class="heatmap">
         {% for c in a.cells %}

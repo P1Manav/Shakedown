@@ -15,6 +15,7 @@ from statsmodels.stats.proportion import (
 
 from shakedown.stats import (
     benjamini_hochberg,
+    exact_stratified_test,
     fisher_exact_two_sided,
     holm,
     minimum_detectable_effect,
@@ -38,9 +39,12 @@ def test_randomized_statistics_match_scipy_and_statsmodels_oracles():
         n2 = int(rng.integers(5, 80))
         k1 = int(rng.integers(0, n1 + 1))
         k2 = int(rng.integers(0, n2 + 1))
+        scipy_p = scipy_stats.fisher_exact([[k1, n1 - k1], [k2, n2 - k2]]).pvalue
         assert fisher_exact_two_sided(k1, n1, k2, n2) == pytest.approx(
-            scipy_stats.fisher_exact([[k1, n1 - k1], [k2, n2 - k2]]).pvalue,
-            abs=1e-12,
+            scipy_p, abs=1e-12
+        )
+        assert exact_stratified_test([(k1, n1, k2, n2)]) == pytest.approx(
+            scipy_p, abs=1e-12
         )
         actual_ci = newcombe_difference_interval(k1, n1, k2, n2)
         expected_ci = confint_proportions_2indep(

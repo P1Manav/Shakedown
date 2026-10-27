@@ -33,6 +33,9 @@ __all__ = [
     "two_proportion_test",
     "fisher_exact_two_sided",
     "newcombe_difference_interval",
+    "exact_stratified_test",
+    "stratified_binary_comparison",
+    "stratified_minimum_detectable_effect",
     "minimum_detectable_effect",
     "holm",
     "benjamini_hochberg",
@@ -184,6 +187,46 @@ def fisher_exact_two_sided(k1: int, n1: int, k2: int, n2: int) -> float:
     return min(1.0, p)
 
 
+def exact_stratified_test(strata: Sequence[tuple[int, int, int, int]]) -> float:
+    """Exact conditional stratified test for a common treatment effect.
+
+    Convolves per-stratum hypergeometric distributions conditioning on marginals,
+    and sums probabilities for all total treatment successes T that are at least as
+    extreme under two-sided probability ordering:
+    sum_{t: P(T=t) <= P(T=T_obs) + 1e-12} P(T=t).
+    """
+    valid_strata = []
+    for k_t, n_t, k_c, n_c in strata:
+        _validate_binomial_count(k_t, n_t)
+        _validate_binomial_count(k_c, n_c)
+        if n_t > 0 and n_c > 0:
+            valid_strata.append((k_t, n_t, k_c, n_c))
+    if not valid_strata:
+        return 1.0
+
+    t_obs = sum(row[0] for row in valid_strata)
+
+    dist: dict[int, float] = {0: 1.0}
+    for k_t, n_t, k_c, n_c in valid_strata:
+        m = k_t + k_c
+        total_n = n_t + n_c
+        lo = max(0, m - n_c)
+        hi = min(n_t, m)
+        pmf: dict[int, float] = {}
+        for a in range(lo, hi + 1):
+            pmf[a] = _hypergeom_prob(a, m, n_t, total_n)
+        new_dist: dict[int, float] = {}
+        for total_a, p1 in dist.items():
+            for a, p2 in pmf.items():
+                s = total_a + a
+                new_dist[s] = new_dist.get(s, 0.0) + p1 * p2
+        dist = new_dist
+
+    obs_prob = dist.get(t_obs, 0.0)
+    p_val = sum(prob for t, prob in dist.items() if prob <= obs_prob + 1e-12)
+    return min(1.0, max(0.0, p_val))
+
+
 def newcombe_difference_interval(k1: int, n1: int, k2: int, n2: int,
                                  z: float = Z_95) -> tuple[float, float]:
     """Newcombe hybrid score interval for p1 - p2 (recommended in practice)."""
@@ -293,13 +336,32 @@ def stratified_binary_comparison(
     delta = sum(weighted_differences) / weight_sum
     ci_low = max(-1.0, sum(interval_lows) / weight_sum)
     ci_high = min(1.0, sum(interval_highs) / weight_sum)
+    small = any(
+        n_t < 20
+        or n_c < 20
+        or min(
+            n_t * (k_t + k_c) / (n_t + n_c),
+            n_t * (n_t - k_t + n_c - k_c) / (n_t + n_c),
+            n_c * (k_t + k_c) / (n_t + n_c),
+            n_c * (n_t - k_t + n_c - k_c) / (n_t + n_c),
+        ) < 5
+        for k_t, n_t, k_c, n_c in strata
+    )
     if cmh_variance:
         statistic = max(0.0, abs(observed_minus_expected) - 0.5) ** 2 / cmh_variance
-        p_value = math.erfc(math.sqrt(statistic / 2.0))
         signed_z = math.copysign(math.sqrt(statistic), observed_minus_expected)
     else:
-        p_value = 0.0 if observed_minus_expected else 1.0
         signed_z = math.copysign(math.inf, observed_minus_expected) if observed_minus_expected else 0.0
+
+    if small:
+        p_value = exact_stratified_test(strata)
+        method = "exact_stratified"
+    elif cmh_variance:
+        p_value = math.erfc(math.sqrt(statistic / 2.0))
+        method = "cochran_mantel_haenszel"
+    else:
+        p_value = 0.0 if observed_minus_expected else 1.0
+        method = "cochran_mantel_haenszel"
 
     k_treat = sum(row[0] for row in strata)
     n_treat = sum(row[1] for row in strata)
@@ -316,9 +378,77 @@ def stratified_binary_comparison(
         ci_low=ci_low,
         ci_high=ci_high,
         p_value=min(1.0, p_value),
-        method="cochran_mantel_haenszel",
+        method=method,
         z=signed_z,
     )
+
+
+def stratified_minimum_detectable_effect(
+    strata: Sequence[tuple[float, int, int]],
+    alpha: float = 0.05,
+    power: float = 0.8,
+) -> float:
+    """Smallest absolute drop detectable in stratified design with ``power`` at two-sided ``alpha``.
+
+    Parameters:
+        strata: sequence of (baseline_p_i, n_treat_i, n_ctrl_i) per stratum.
+    """
+    _validate_alpha(alpha)
+    if not 0.0 < power < 1.0:
+        raise ValueError("power must be in (0, 1)")
+
+    valid_strata = []
+    for p, n_t, n_c in strata:
+        if not 0.0 <= p <= 1.0:
+            raise ValueError("baseline_p must be in [0, 1]")
+        if n_t < 0 or n_c < 0:
+            raise ValueError("sample sizes must be non-negative")
+        if n_t > 0 and n_c > 0:
+            valid_strata.append((float(p), int(n_t), int(n_c)))
+
+    if not valid_strata:
+        return 1.0
+
+    weights = [n_t * n_c / (n_t + n_c) for _, n_t, n_c in valid_strata]
+    total_w = sum(weights)
+    if total_w <= 0.0:
+        return 1.0
+
+    z_alpha = norm_ppf(1.0 - alpha / 2.0)
+
+    def power_at_step(direction: float, amount: float) -> float:
+        var_sum = 0.0
+        weighted_diff = 0.0
+        for w, (base_p, n_t, n_c) in zip(weights, valid_strata):
+            p_t = max(0.0, min(1.0, base_p + direction * amount))
+            var_t = p_t * (1.0 - p_t) / n_t
+            var_c = base_p * (1.0 - base_p) / n_c
+            var_sum += (w ** 2) * (var_t + var_c)
+            weighted_diff += w * abs(p_t - base_p)
+        se = math.sqrt(max(1e-12, var_sum)) / total_w
+        diff = weighted_diff / total_w
+        if diff <= 0.0:
+            return 0.0
+        noncentrality = diff / se
+        return norm_cdf(-z_alpha - noncentrality) + 1.0 - norm_cdf(z_alpha - noncentrality)
+
+    effects = []
+    for direction, available in ((-1.0, max(p for p, _, _ in valid_strata)),
+                                 (1.0, max(1.0 - p for p, _, _ in valid_strata))):
+        if available <= 0.0:
+            continue
+        if power_at_step(direction, available) < power:
+            continue
+        lo, hi = 0.0, available
+        for _ in range(80):
+            mid = (lo + hi) / 2.0
+            if power_at_step(direction, mid) >= power:
+                hi = mid
+            else:
+                lo = mid
+        effects.append(hi)
+
+    return min(effects, default=1.0)
 
 
 # ---------------------------------------------------------------------------

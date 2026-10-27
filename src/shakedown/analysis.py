@@ -15,6 +15,7 @@ from shakedown.stats import (
     newcombe_difference_interval,
     norm_ppf,
     stratified_binary_comparison,
+    stratified_minimum_detectable_effect,
     two_proportion_test,
     wilson_interval,
 )
@@ -93,7 +94,7 @@ def _exposure_block(runs: list[dict], baseline_k: int, baseline_n: int,
 
 
 def _label(comparison, adjusted_p: float, alpha: float, meaningful_drop: float,
-           n: int, mde: float) -> tuple[str, str]:
+           n: int, mde: float, exposure_rate: float | None = None) -> tuple[str, str]:
     if n == 0:
         return "not-run", "no runs completed"
     if adjusted_p < alpha and comparison.delta < 0:
@@ -102,6 +103,11 @@ def _label(comparison, adjusted_p: float, alpha: float, meaningful_drop: float,
         return "helpful", f"adjusted p={adjusted_p:.4f}; {comparison.delta * 100:.1f} pt lift"
     if is_meaningful_effect_ruled_out(
             comparison.ci_low, comparison.ci_high, meaningful_drop):
+        if exposure_rate is None or exposure_rate < 0.8:
+            return "insufficient exposure", (
+                f"meaningful effect ruled out under ITT, but exposure rate is "
+                f"{f'{exposure_rate * 100:.1f}%' if exposure_rate is not None else 'unknown'} (< 80%)"
+            )
         return "dead-weight", (
             f"familywise CI rules out an effect of {meaningful_drop * 100:.0f} pts or more "
             f"(interval {comparison.ci_low * 100:.1f} to {comparison.ci_high * 100:.1f} pts)")
@@ -213,6 +219,14 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             )
             if stratified:
                 label_comparison = stratified
+                task_strata = []
+                for tid in sorted(set(treatment_by_task) & set(control_by_task)):
+                    k_c, n_c = control_by_task[tid]
+                    _, n_t = treatment_by_task[tid]
+                    if n_c > 0 and n_t > 0:
+                        task_strata.append((k_c / n_c, n_t, n_c))
+                if task_strata:
+                    mde = stratified_minimum_detectable_effect(task_strata, cell_alpha)
             else:
                 label_comparison = comparison
         raw_cells.append({
@@ -273,12 +287,15 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         if cell["n"] and cell["label_comparison"]:
             from shakedown.stats import Comparison
             cmp_obj = Comparison(**cell["label_comparison"])
-            verdict, reason = _label(cmp_obj, adj, alpha, meaningful_drop, cell["n"], cell["mde"])
+            verdict, reason = _label(
+                cmp_obj, adj, alpha, meaningful_drop, cell["n"], cell["mde"],
+                cell["exposure"].get("exposure_rate"),
+            )
             cell["verdict"] = verdict
             cell["reason"] = reason
         else:
-            cell["verdict"] = verdict
-            cell["reason"] = reason
+            cell["verdict"] = "not-run"
+            cell["reason"] = "no runs completed"
         cell["mde_points"] = round(cell["mde"] * 100, 1)
         cell["delta_points"] = round(
             (cell["label_comparison"] or {}).get("delta", 0.0) * 100, 1
@@ -383,6 +400,7 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
                 "critical": "adjusted p < alpha and a negative delta",
                 "helpful": "adjusted p < alpha and a positive delta",
                 "dead-weight": "not significant and the full CI rules out meaningful effects in either direction",
+                "insufficient exposure": "meaningful effect ruled out under ITT, but exposure rate is below 80% or unknown",
                 "inconclusive": "not significant and the CI still includes a meaningful effect",
             },
             "success_check": "executable command exit code (never an LLM judge)",

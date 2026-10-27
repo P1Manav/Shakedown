@@ -44,7 +44,19 @@ U_\Delta=\hat\Delta+\sqrt{(U_T-\hat p_T)^2+(\hat p_C-L_C)^2}.
 
 ## Task-stratified comparison
 
-For each task stratum \(i\) with treatment size \(n_{Ti}\), baseline size \(n_{Ci}\), treatment successes \(a_i\), and baseline successes \(c_i\), the Cochran–Mantel–Haenszel test sums the conditional departures from the null:
+For each task stratum \(i\) with treatment size \(n_{Ti}\), baseline size \(n_{Ci}\), treatment successes \(a_i\), and baseline successes \(c_i\), the conditional null distribution of treatment successes \(A_i\) given margins \(m_i=a_i+c_i\) and group sizes follows an independent hypergeometric distribution:
+
+\[
+P(A_i = a) = \frac{\binom{n_{Ti}}{a} \binom{n_{Ci}}{m_i - a}}{\binom{n_{Ti}+n_{Ci}}{m_i}}.
+\]
+
+When any stratum has small cell counts (\(n_{Ti} < 20\), \(n_{Ci} < 20\), or any expected count \(< 5\)), Shakedown computes an **exact conditional stratified test** by convolving the per-stratum hypergeometric distributions to obtain the exact distribution of total treatment successes \(T = \sum_i A_i\). The two-sided p-value is computed by probability ordering:
+
+\[
+p = \sum_{t: P(T=t) \le P(T=T_{\text{obs}}) + 10^{-12}} P(T=t).
+\]
+
+When all strata are sufficiently large, Shakedown evaluates the asymptotic Cochran–Mantel–Haenszel test:
 
 \[
 O-E=\sum_i\left(a_i-\frac{n_{Ti}(a_i+c_i)}{n_{Ti}+n_{Ci}}\right),
@@ -57,7 +69,13 @@ V=\sum_i\frac{n_{Ti}n_{Ci}(a_i+c_i)(b_i+d_i)}
 
 where \(b_i=n_{Ti}-a_i\) and \(d_i=n_{Ci}-c_i\). Shakedown uses the continuity-corrected statistic \(\max(0,|O-E|-0.5)^2/V\), with a one-degree-of-freedom chi-square survival probability evaluated as \(\operatorname{erfc}(\sqrt{\chi^2/2})\).
 
-The reported stratified effect is a precision-weighted risk difference. Each task gets weight \(w_i=n_{Ti}n_{Ci}/(n_{Ti}+n_{Ci})\); \(\hat\Delta_{strat}=\sum_i w_i(\hat p_{Ti}-\hat p_{Ci})/\sum_iw_i\). Its interval is the same weighted average of task-specific Newcombe lower and upper bounds. The report shows both pooled and stratified comparisons. Holm/BH adjustment and the verdict label use the CMH p-value and stratified effect when at least one matched task stratum exists; otherwise the report explicitly identifies the pooled comparison as the fallback. Scheduler replicate numbers map to the same task across baseline and perturbation cells.
+The reported stratified effect is a precision-weighted risk difference. Each task gets weight \(w_i=n_{Ti}n_{Ci}/(n_{Ti}+n_{Ci})\); \(\hat\Delta_{strat}=\sum_i w_i(\hat p_{Ti}-\hat p_{Ci})/\sum_iw_i\). Its interval is the same weighted average of task-specific Newcombe lower and upper bounds. Stratified MDE is solved numerically from the variance of the precision-weighted difference:
+
+\[
+SE_{strat} = \frac{\sqrt{\sum_i w_i^2 \left( \frac{p_{Ti}(1-p_{Ti})}{n_{Ti}} + \frac{p_{Ci}(1-p_{Ci})}{n_{Ci}} \right)}}{\sum_i w_i}.
+\]
+
+The report shows both pooled and stratified comparisons. Holm/BH adjustment and the verdict label use the exact/CMH p-value and stratified effect when at least one matched task stratum exists; otherwise the report explicitly identifies the pooled comparison as the fallback. Exposure is tracked per cell; when an ITT comparison rules out a meaningful effect but exposure is below 80% or unknown, the cell is labeled `insufficient exposure`. Scheduler replicate numbers map to the same task across baseline and perturbation cells.
 
 Per-task rates and Wilson intervals are also reported, using valid observations only. Assigned-run counts include invalid attempts so allocation gaps are visible.
 
