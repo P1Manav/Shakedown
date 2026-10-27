@@ -103,7 +103,8 @@ class ChaosConfig:
 
     @property
     def label(self) -> str:
-        return f"{self.fault} → {self.tool}"
+        extra = ", ".join(f"{k}={v}" for k, v in sorted(self.params.items()))
+        return f"{self.fault} → {self.tool}" + (f" ({extra})" if extra else "")
 
 
 @dataclass(frozen=True)
@@ -289,7 +290,7 @@ def load_task(path: str | Path, budget_override: dict | None = None) -> TaskSpec
     for index, item in enumerate(chaos_raw):
         context = f"shared perturbations.chaos[{index}]"
         config = _mapping(item, context)
-        _validate_keys(config, {"fault", "tool", "keep_chars", "delay_ms"}, context)
+        _validate_keys(config, {"fault", "tool", "keep_chars", "delay_ms", "persist"}, context)
         fault = config.get("fault")
         tool = config.get("tool")
         if fault not in supported_faults or not isinstance(tool, str) or not tool:
@@ -298,8 +299,12 @@ def load_task(path: str | Path, budget_override: dict | None = None) -> TaskSpec
         allowed_params = {
             "truncate_output": {"keep_chars"},
             "added_latency": {"delay_ms"},
+            "empty_result": {"persist"},
+            "renamed_path": {"persist"},
         }.get(fault, set())
         _validate_keys(params, allowed_params, context)
+        if "persist" in params and not isinstance(params["persist"], bool):
+            raise ValueError(f"{context}: persist must be a boolean")
         chaos.append(ChaosConfig(fault=fault, tool=tool, params=params))
 
     noise_modes = shared.get("noise", []) or []

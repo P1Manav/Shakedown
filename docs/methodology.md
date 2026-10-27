@@ -103,6 +103,20 @@ Thirty-two failures were hand-labeled from the completed 252-run local experimen
 
 These are descriptive sample metrics, not population estimates; the task-stratified sample intentionally contains eight failures from each task, and absent classes such as timeout, tampering, invalid, loop, and malformed-tool-call have no measured precision or recall here. The lone false-success false positive (`run-00039`) has a legacy stored claim flag but a trace final message that only proposes reading a file. Current runs derive claims from the final assistant message rather than the old agent marker, so this disagreement is specific to the historical record. The classifier also treats a blocked agent asking the user to check or retry as `gave-up`; `tests/test_taxonomy.py` covers that wording.
 
+## Perturbation fault catalog and semantics
+
+Shakedown tests agent resilience by injecting controlled faults into prompt context and tool execution returns:
+
+* **`truncate_output` (`keep_chars`, default 200):** Truncates tool returns that exceed `keep_chars`. If the output is already shorter than `keep_chars`, the run is traced as unexposed (`"tool output is shorter than keep_chars"`).
+* **`empty_result` (`persist`, default `false`):** Simulates empty tool returns (e.g. empty file or silent command execution). By default, the fault is transient: the first call for a given file path returns empty, while a retry on the same path or an access to a distinct path succeeds and returns actual content. When `persist: true`, every invocation on the target tool returns empty.
+* **`malformed_json`:** Corrupts structured tool output by returning truncated and unclosed JSON fragments (`{"ok": true, "output": ...`), testing whether the agent validates tool schemas.
+* **`error_once`:** Simulates an ephemeral infrastructure failure (HTTP 503). Fires exactly once per run per tool on its first call. Subsequent calls to that tool recover and execute normally. Replay consistency is guaranteed via per-call-id caching.
+* **`stale_file`:** Simulates caching or replication lag by freezing file content at first read. Subsequent reads of the same path return the initial content even if the agent has overwritten the file on disk.
+* **`renamed_path` (`persist`, default `false`):** Simulates file movement or missing paths with a synthetic `FileNotFoundError`. By default, the fault is transient: the first attempt on a given path fails, while a retry or access to another path succeeds. When `persist: true`, access to the path remains broken.
+* **`added_latency` (`delay_ms`, default 500):** Injects an asynchronous wall-clock delay before tool result transmission, exposing timeout and race condition vulnerabilities.
+* **Noise mutations (`reorder_tools`, `typos`, `paraphrase`):** Injects non-destructive perturbations into prompt chunk order, synthetic typographic errors, or deterministic synonym substitutions without changing semantics.
+
 ## Oracle validation
 
 `tests/test_stats_oracle.py` runs deterministic randomized comparisons against SciPy and statsmodels for Wilson intervals, Fisher exact p-values, Newcombe intervals, two-proportion z tests, multiple-testing adjustments, normal CDF values, and MDE power. Those libraries are only in the `dev` extra and are not imported by runtime modules.
+

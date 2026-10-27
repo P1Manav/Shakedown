@@ -19,6 +19,7 @@ class ChaosPerturbation(Perturbation):
         self.tool = tool
         self.keep_chars = int(params.get("keep_chars", 200))
         self.delay_ms = int(params.get("delay_ms", 1000))
+        self.persist = bool(params.get("persist", False))
         if fault == "added_latency" and self.delay_ms <= 0:
             raise ValueError("added_latency delay_ms must be greater than zero")
 
@@ -33,14 +34,21 @@ class ChaosPerturbation(Perturbation):
             return content[: self.keep_chars] + "\n...[tool output truncated]"
 
         if self.fault == "empty_result":
-            return ""
+            if self.persist:
+                return ""
+            path = str(args.get("path", args.get("file", "")))
+            key = f"empty_result:{self.tool}:{path}" if path else f"empty_result:{self.tool}"
+            if key not in ctx.state.fired:
+                ctx.state.fired.add(key)
+                return ""
+            return content
 
         if self.fault == "malformed_json":
             partial = content[:200].replace('"', "'")
             return '{"ok": true, "output": "' + partial
 
         if self.fault == "error_once":
-            key = f"error_once:{ctx.state.current_tool_call_id}"
+            key = f"error_once:{self.tool}"
             if key not in ctx.state.fired:
                 ctx.state.fired.add(key)
                 return (f"ToolError: transient upstream failure (HTTP 503). "
@@ -57,8 +65,13 @@ class ChaosPerturbation(Perturbation):
 
         if self.fault == "renamed_path":
             path = str(args.get("path", args.get("file", "")))
-            key = f"renamed:{ctx.state.current_tool_call_id}"
-            if key not in ctx.state.fired and content and not content.lower().startswith("error"):
+            if not content or content.lower().startswith("error"):
+                return content
+            if self.persist:
+                return (f"FileNotFoundError: [Errno 2] No such file or directory: '{path}'. "
+                        f"The file may have been renamed; list the directory and try again.")
+            key = f"renamed:{self.tool}:{path}" if path else f"renamed:{self.tool}"
+            if key not in ctx.state.fired:
                 ctx.state.fired.add(key)
                 return (f"FileNotFoundError: [Errno 2] No such file or directory: '{path}'. "
                         f"The file may have been renamed; list the directory and try again.")
