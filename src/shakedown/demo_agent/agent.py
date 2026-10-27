@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+from importlib import resources
 from pathlib import Path
 
 import httpx
@@ -21,8 +22,9 @@ import yaml
 
 from shakedown.model_config import DEFAULT_MODEL_NAME
 
-PKG = Path(__file__).resolve().parent
-CHUNK_DIR = PKG / "prompt_chunks"
+CHUNK_DIR = Path(str(
+    resources.files("shakedown").joinpath("data", "agent", "prompt_chunks")
+))
 MAX_OBSERVATION = 8000
 
 

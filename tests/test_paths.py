@@ -19,7 +19,7 @@ def test_default_task_discovery_resolves_bundled_resources(monkeypatch, tmp_path
 
     tasks = discover_tasks(names=["bugfix_01"])
 
-    assert "tasks" in packages
+    assert "shakedown" in packages
     assert [task.id for task in tasks] == ["bugfix_01"]
     assert tasks[0].source.is_dir()
 

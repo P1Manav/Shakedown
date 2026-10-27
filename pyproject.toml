@@ -3,13 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shakedown"
-version = "0.1.0"
+name = "shakedown-agent-profiler"
+version = "0.2.0"
 description = "A sensitivity profiler for AI agents: reliability, context ablation, and chaos testing with honest statistics."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
-authors = [{ name = "Shakedown" }]
+license = { file = "LICENSE" }
+authors = [{ name = "Manav Prajapati" }]
+urls = { Homepage = "https://github.com/P1Manav/Shakedown", Repository = "https://github.com/P1Manav/Shakedown", Issues = "https://github.com/P1Manav/Shakedown/issues" }
 dependencies = [
   "fastapi>=0.110",
   "uvicorn>=0.27",
@@ -25,19 +26,28 @@ dev = ["pytest>=8.0", "scipy>=1.10", "statsmodels>=0.14", "ruff>=0.5"]
 shakedown = "shakedown.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["shakedown*", "tasks*"]
+where = ["src"]
+include = ["shakedown*"]
 
 [tool.setuptools.package-data]
-shakedown = ["report/*.j2", "demo_agent/prompt_chunks/*"]
-tasks = [
-  "perturbations.yaml",
-  "bugfix_*/task.yaml",
-  "bugfix_*/repo/*.py",
-  "bugfix_*/repo/*.md",
-  "bugfix_*/repo/tests/*.py",
-  "bugfix_*/solution/*.py",
+shakedown = [
+  "report/template.html.j2",
+  "data/agent/prompt_chunks/*.md",
+  "data/agent/prompt_chunks/manifest.yaml",
+  "data/tasks/perturbations.yaml",
+  "data/tasks/bugfix_*/task.yaml",
+  "data/tasks/bugfix_*/repo/*.py",
+  "data/tasks/bugfix_*/repo/*.md",
+  "data/tasks/bugfix_*/repo/tests/*.py",
+  "data/tasks/bugfix_*/solution/*.py",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_stats_oracle.py" = ["E402"]

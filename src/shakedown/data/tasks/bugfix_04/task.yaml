@@ -14,13 +14,13 @@ success:
   command: 'python -m pytest -q tests/'
   timeout_s: 120
 prompt_chunks:
-  - {id: identity, file: shakedown/demo_agent/prompt_chunks/identity.md, kind: system}
-  - {id: workflow, file: shakedown/demo_agent/prompt_chunks/workflow.md, kind: system}
-  - {id: verification, file: shakedown/demo_agent/prompt_chunks/verification.md, kind: system}
-  - {id: tool_read_file, file: shakedown/demo_agent/prompt_chunks/tool_read_file.md, kind: tool_description, tool: read_file}
-  - {id: tool_write_file, file: shakedown/demo_agent/prompt_chunks/tool_write_file.md, kind: tool_description, tool: write_file}
-  - {id: tool_run_tests, file: shakedown/demo_agent/prompt_chunks/tool_run_tests.md, kind: tool_description, tool: run_tests}
-  - {id: tool_list_dir, file: shakedown/demo_agent/prompt_chunks/tool_list_dir.md, kind: tool_description, tool: list_dir}
+  - {id: identity, file: data/agent/prompt_chunks/identity.md, kind: system}
+  - {id: workflow, file: data/agent/prompt_chunks/workflow.md, kind: system}
+  - {id: verification, file: data/agent/prompt_chunks/verification.md, kind: system}
+  - {id: tool_read_file, file: data/agent/prompt_chunks/tool_read_file.md, kind: tool_description, tool: read_file}
+  - {id: tool_write_file, file: data/agent/prompt_chunks/tool_write_file.md, kind: tool_description, tool: write_file}
+  - {id: tool_run_tests, file: data/agent/prompt_chunks/tool_run_tests.md, kind: tool_description, tool: run_tests}
+  - {id: tool_list_dir, file: data/agent/prompt_chunks/tool_list_dir.md, kind: tool_description, tool: list_dir}
 budget:
   baseline_runs: 60
   min_runs_per_cell: 16

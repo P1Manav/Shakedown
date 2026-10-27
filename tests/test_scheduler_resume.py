@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 from shakedown.cost import BudgetTracker
-from shakedown.perturb.base import Baseline
 from shakedown.runner import Runner
 from shakedown.scheduler import CellSpec, GridRunner
 from shakedown.spec import BudgetSpec

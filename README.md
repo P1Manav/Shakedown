@@ -52,7 +52,7 @@ The proxy caps output tokens, reserves estimated per-request input/output cost b
 
 ## Run a custom task
 
-Each `tasks/<name>/task.yaml` declares the agent command, workspace source, success command, prompt chunks, model, and budget. The shared `tasks/perturbations.yaml` defines the experiment grid once. The runner creates a fresh temporary workspace, starts the agent with `OPENAI_BASE_URL` pointed at the proxy, waits for the agent to exit, then runs the executable success check. The proxy records each request and response under that run ID.
+Each bundled `src/shakedown/data/tasks/<name>/task.yaml` declares the agent command, workspace source, success command, prompt chunks, model, and budget. The shared `src/shakedown/data/tasks/perturbations.yaml` defines the experiment grid once. The runner creates a fresh temporary workspace, starts the agent with `OPENAI_BASE_URL` pointed at the proxy, waits for the agent to exit, then runs the executable success check. The proxy records each request and response under that run ID.
 
 ```yaml
 agent:
@@ -66,7 +66,9 @@ success:
 
 Run a selected task or subset of cells with `python -m shakedown run --tasks bugfix_01 --cells chaos`. See `python -m shakedown run --help` for sample-size, correction, worker, and budget options.
 
-`shakedown/model_config.py` is the source of truth for the default model name. Keep `.env.example` and the README's model setup in sync when changing it.
+`src/shakedown/model_config.py` is the source of truth for the default model name. Keep `.env.example` and the README's model setup in sync when changing it.
+
+The PyPI distribution is `shakedown-agent-profiler` because `shakedown` is already registered; its installed command remains `shakedown`.
 
 ## Architecture
 
@@ -95,7 +97,7 @@ python -m pytest -q
 python -m shakedown selftest
 ```
 
-`selftest` verifies that each benchmark's buggy implementation fails its test suite and its fixed solution passes. `BUILD_LOG.md` records checkpoints, measured costs, and limitations.
+`selftest` verifies that each benchmark's buggy implementation fails its test suite and its fixed solution passes. `docs/BUILD_LOG.md` records checkpoints, measured costs, and limitations. `scripts/wheel_smoke.py` builds the distribution wheel, installs it in a clean virtual environment, then smoke-tests `run`, `selftest`, and `report` from outside the checkout.
 
 ## Demo outline (about 90 seconds)
 

@@ -168,18 +168,11 @@ class TaskSpec:
         raise KeyError(chunk_id)
 
 
-def _project_root_for(task_dir: Path) -> Path:
-    for parent in [task_dir, *task_dir.parents]:
-        if (parent / "shakedown").is_dir() and (parent / "tasks").is_dir():
-            return parent
-    return Path(__file__).resolve().parent.parent
-
-
 def _resolve_chunk_file(file: str, task_dir: Path) -> Path:
     candidates = [
         task_dir / file,
-        _project_root_for(task_dir) / file,
-        Path(__file__).resolve().parent.parent / file,
+        Path.cwd() / file,
+        Path(str(resources.files("shakedown"))) / file,
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -343,7 +336,7 @@ def load_task(path: str | Path, budget_override: dict | None = None) -> TaskSpec
 
 def discover_tasks(root: Path | None = None, names: list[str] | None = None,
                    budget_override: dict | None = None) -> list[TaskSpec]:
-    root = root or Path(resources.files("tasks"))
+    root = root or Path(str(resources.files("shakedown").joinpath("data", "tasks")))
     paths = sorted(p / "task.yaml" for p in root.iterdir() if (p / "task.yaml").exists())
     if names:
         wanted = set(names)
