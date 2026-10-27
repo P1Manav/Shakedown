@@ -39,6 +39,10 @@ _SECRET_ENV_NAME = re.compile(
 
 
 def _is_protected(relative: Path) -> bool:
+    if relative.suffix == ".pyc" or any(
+        part in {"__pycache__", ".pytest_cache"} for part in relative.parts
+    ):
+        return False
     return bool(relative.parts and (
         relative.parts[0] == "tests"
         or relative.name in _PROTECTED_CONFIGS

@@ -5,9 +5,16 @@ from pathlib import Path
 from shakedown.cost import BudgetTracker, Pricing
 from shakedown.perturb.base import Baseline
 from shakedown.proxy import ProxyServer
-from shakedown.runner import Runner
+from shakedown.runner import Runner, _is_protected
 from shakedown.store import Store
 from shakedown.analysis import build_analysis
+
+
+def test_generated_test_bytecode_is_not_treated_as_tampering():
+    assert _is_protected(Path("tests/test_guard.py"))
+    assert not _is_protected(
+        Path("tests/__pycache__/test_guard.cpython-311.pyc")
+    )
 
 
 def test_runner_restores_pristine_tests_and_fails_tampered_run(tmp_path):
