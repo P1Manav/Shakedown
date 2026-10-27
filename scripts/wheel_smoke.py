@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import tempfile
-import time
 import venv
 import zipfile
 from pathlib import Path
@@ -63,9 +61,6 @@ def main() -> None:
         run([str(python), "-m", "pip", "install", str(wheel)], smoke, clean_env)
         run([str(python), "-m", "shakedown", "run", "--help"], smoke, clean_env)
         run([str(python), "-m", "shakedown", "selftest"], smoke, clean_env)
-        with socket.socket() as sock:
-            sock.bind(("127.0.0.1", 0))
-            port = sock.getsockname()[1]
         server_code = """
 import json
 import sys
@@ -87,15 +82,24 @@ class Handler(BaseHTTPRequestHandler):
             "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
     def log_message(self, *_):
         pass
-HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
+server = HTTPServer(("127.0.0.1", 0), Handler)
+print(server.server_port, flush=True)
+server.serve_forever()
 """
         server = subprocess.Popen(
-            [str(python), "-c", server_code, str(port)],
+            [str(python), "-u", "-c", server_code],
             cwd=smoke,
             env=clean_env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
+        port_line = server.stdout.readline().strip()
+        if not port_line or not port_line.isdigit():
+            stderr_out = server.stderr.read()
+            server.terminate()
+            raise RuntimeError(f"smoke model server failed to start: {stderr_out}")
+        port = int(port_line)
         model_env = {
             **clean_env,
             "MODEL_BASE_URL": f"http://127.0.0.1:{port}/v1",
@@ -104,16 +108,6 @@ HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
             "MODEL_API_FREE": "true",
         }
         try:
-            for _ in range(50):
-                if server.poll() is not None:
-                    raise RuntimeError("smoke model server exited before starting")
-                try:
-                    with socket.create_connection(("127.0.0.1", port), timeout=0.2):
-                        break
-                except OSError:
-                    time.sleep(0.1)
-            else:
-                raise RuntimeError("smoke model server did not start")
             run([
                 str(python), "-m", "shakedown", "run", "--baseline",
                 "--tasks", "bugfix_01", "-n", "1", "--max-runs", "1",
