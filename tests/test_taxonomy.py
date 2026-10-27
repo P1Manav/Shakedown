@@ -53,6 +53,16 @@ def test_gave_up_requires_abandonment_not_a_failed_test(message, expected):
                          "final_message": message}) == expected
 
 
+def test_gave_up_detects_a_blocked_agent_asking_the_user_to_retry():
+    run = {
+        "success": False,
+        "actions": ["read_file:calc.py"],
+        "final_message": "There was an issue reading the file. Could you please retry?",
+    }
+
+    assert classify_run(run) == "gave-up"
+
+
 @pytest.mark.parametrize(
     ("message", "claimed"),
     [

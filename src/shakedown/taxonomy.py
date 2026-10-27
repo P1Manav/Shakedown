@@ -27,7 +27,9 @@ _CALL_CAP_ERROR = re.compile(
 )
 _GAVE_UP_MESSAGE = re.compile(
     r"\b(unable|cannot|can't|could not|stuck|give up|no such file)\b|"
-    r"\bfailed to (?:fix|solve|complete|resolve)\b",
+    r"\bfailed to (?:fix|solve|complete|resolve)\b|"
+    r"\b(?:could you|please)\s+(?:please\s+)?"
+    r"(?:double-check|check|verify|ensure|retry)\b",
     re.IGNORECASE,
 )
 

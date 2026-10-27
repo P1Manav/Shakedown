@@ -1,6 +1,6 @@
 # Statistical methodology
 
-Shakedown measures outcomes using the executable task check. All runtime inference is implemented in `shakedown/stats.py` with Python's standard library; SciPy and statsmodels are optional development-only reference implementations and are not runtime dependencies.
+Shakedown measures outcomes using the executable task check. All runtime inference is implemented in `src/shakedown/stats.py` with Python's standard library; SciPy and statsmodels are optional development-only reference implementations and are not runtime dependencies.
 
 ## Outcome populations
 
@@ -89,6 +89,19 @@ Evaluation uses fresh task workspaces and equal \(N\) in a no-fix control and a 
 ## Sequential sampling
 
 At each planned look, Shakedown compares the cell with the baseline and spends at most \(\alpha/(mL)\), where \(m\) is the number of cells in that perturbation family and \(L\) is the planned number of batch looks. It evaluates only at batch boundaries. It stops for an effect when the raw p-value is below this per-look threshold, or for negligible effect when the simultaneous Newcombe interval rules out the configured meaningful drop. Clear cells stop early so remaining runs continue to accumulate on ambiguous cells. Final results still receive the configured Holm or BH correction within their family. The invalid-run threshold is operational rather than statistical: grid execution stops when invalid runs exceed 20% of all attempted runs.
+
+## Failure-taxonomy validation
+
+Thirty-two failures were hand-labeled from the completed 252-run local experiment `demo-20261026-232912`: eight per task, sampled with seed 2026 from non-success, non-invalid rows after excluding legacy perturbation-execution errors. Labels and concise evidence are stored in `docs/taxonomy-labels.csv`. Recompute the table against the recorded JSONL with `python scripts/validate_taxonomy.py runs/demo-20261026-232912/runs.jsonl`.
+
+| Class | Hand-labeled support | Predicted | Precision | Recall |
+|---|---:|---:|---:|---:|
+| Other | 28 | 27 | 100.0% | 96.4% |
+| False success | 2 | 3 | 66.7% | 100.0% |
+| Gave up | 2 | 2 | 100.0% | 100.0% |
+| **Micro / exact match** | **32** | **32** | **96.9%** | **96.9%** |
+
+These are descriptive sample metrics, not population estimates; the task-stratified sample intentionally contains eight failures from each task, and absent classes such as timeout, tampering, invalid, loop, and malformed-tool-call have no measured precision or recall here. The lone false-success false positive (`run-00039`) has a legacy stored claim flag but a trace final message that only proposes reading a file. Current runs derive claims from the final assistant message rather than the old agent marker, so this disagreement is specific to the historical record. The classifier also treats a blocked agent asking the user to check or retry as `gave-up`; `tests/test_taxonomy.py` covers that wording.
 
 ## Oracle validation
 
