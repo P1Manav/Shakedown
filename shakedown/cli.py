@@ -261,17 +261,17 @@ def cmd_fix(args) -> int:
         return 1
     print(f"[fix] target: {result['treating']['label']}")
     print(f"[fix] {result['fix_line']}")
-    print(f"[fix] baseline: {_fmt_pct(result['baseline']['original']['rate'])} -> "
+    print(f"[fix] fresh control: {_fmt_pct(result['baseline']['original']['rate'])} -> "
           f"{_fmt_pct(result['baseline']['fixed']['rate'])} "
           f"({result['baseline']['verdict']})")
-    if result.get("target"):
-        print(f"[fix] cell {result['target_cell']}: "
-              f"{_fmt_pct(result['target']['original']['rate'])} -> "
-              f"{_fmt_pct(result['target']['fixed']['rate'])} "
-              f"({result['target']['verdict']})")
+    print(f"[fix] fresh control vs fix: {result['control_runs']} vs "
+          f"{result['fixed_runs']} runs; observed lift {result['lift_points']:+.1f} pts, "
+          f"p={result['p_value']:.4f}, MDE={result['mde_points']:.1f} pts")
+    print(f"[fix] guidance: {result['generation_source']} "
+          f"({result['generation_status']})")
     from shakedown.report.build import build_report
-    store = Store(result["experiment_id"])
-    out = build_report(store)
+    store = Store(result["experiment_id"], Path(args.path).resolve().parent)
+    out = build_report(store, result["analysis"])
     print(f"[report] {out}")
     if args.open:
         _open(out)
@@ -370,13 +370,15 @@ def cmd_demo(args) -> int:
     if not args.no_fix:
         print("[demo] re-measuring the top fragility with a suggested fix")
         from shakedown.fix import run_fix
-        result = run_fix(Path("runs") / args.experiment, None, args.fix_runs or 20,
+        original_store = Store(args.experiment)
+        result = run_fix(original_store.dir, None, args.fix_runs,
                          args.max_minutes or 60, args.workers or 2)
         if result.get("status") == "ok":
-            print(f"[demo] fixed baseline: {_fmt_pct(result['baseline']['fixed']['rate'])} "
+            print(f"[demo] fix arm: {_fmt_pct(result['baseline']['fixed']['rate'])} "
                   f"({result['baseline']['verdict']})")
             from shakedown.report.build import build_report
-            build_report(Store(result["experiment_id"]))
+            report = build_report(Store(result["experiment_id"]), result["analysis"])
+            print(f"[demo] fix report: {report}")
     return 0
 
 
@@ -437,7 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     fix = sub.add_parser("fix", help="suggest a fix for the top fragility and re-measure")
     fix.add_argument("path")
-    fix.add_argument("-n", "--runs", type=int, default=20)
+    fix.add_argument("-n", "--runs", type=int, default=60)
     fix.add_argument("--workers", type=int, default=2)
     fix.add_argument("--max-minutes", type=float, default=60)
     fix.add_argument("--keep-workdirs", action="store_true")
@@ -481,7 +483,7 @@ def build_parser() -> argparse.ArgumentParser:
     common(demo)
     demo.add_argument("--open", action="store_true")
     demo.add_argument("--no-fix", action="store_true")
-    demo.add_argument("--fix-runs", type=int, default=20)
+    demo.add_argument("--fix-runs", type=int, default=60)
     demo.set_defaults(func=cmd_demo)
     return parser
 

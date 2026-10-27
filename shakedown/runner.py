@@ -324,7 +324,8 @@ class Runner:
 
     def run(self, task: TaskSpec, cell_id: str, cell_label: str, cell_kind: str,
             perturbation: Perturbation, params: dict | None = None,
-            replicate: int = -1) -> RunResult:
+            replicate: int = -1, fix_line: str | None = None) -> RunResult:
+        effective_fix_line = self.fix_line if fix_line is None else fix_line
         run_id = self.next_run_id()
         workdir = self.work_root / run_id
         if workdir.exists():
@@ -335,7 +336,7 @@ class Runner:
         ctx = RunContext(run_id=run_id, task_id=task.id, cell_id=cell_id,
                          perturbation=perturbation, max_calls=task.max_model_calls,
                          store=self.store, pricing=self._pricing(task),
-                         fix_line=self.fix_line, model_name=task.model.name,
+                         fix_line=effective_fix_line, model_name=task.model.name,
                          temperature=task.model.temperature,
                          supports_seed=task.model.supports_seed,
                          prompt_chunks=[

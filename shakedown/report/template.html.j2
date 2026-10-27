@@ -294,6 +294,49 @@
       </article>
     </section>
 
+    {% if a.fix %}
+    <section aria-labelledby="fix-experiment-title">
+      <div class="section-head"><div><h2 id="fix-experiment-title">Fix experiment</h2>
+        <p>Fresh, interleaved no-fix control versus fix arm; the earlier worst cell is context, not the control.</p></div></div>
+      <div class="lower-grid">
+        <article class="panel content-card">
+          <div class="section-head"><div><h3>No-fix control</h3></div></div>
+          <div class="baseline-row">
+            <div class="baseline-value">{{ "%.0f"|format(a.fix.control.rate * 100) }}%</div>
+            <div class="baseline-meta"><strong>{{ a.fix.control.k }} / {{ a.fix.control.n }} passed</strong>
+              Wilson 95% CI {{ "%.0f"|format(a.fix.control.wilson[0] * 100) }}–{{ "%.0f"|format(a.fix.control.wilson[1] * 100) }}%
+            </div>
+          </div>
+        </article>
+        <article class="panel content-card">
+          <div class="section-head"><div><h3>Fix arm</h3></div></div>
+          <div class="baseline-row">
+            <div class="baseline-value">{{ "%.0f"|format(a.fix.fixed.rate * 100) }}%</div>
+            <div class="baseline-meta"><strong>{{ a.fix.fixed.k }} / {{ a.fix.fixed.n }} passed</strong>
+              Wilson 95% CI {{ "%.0f"|format(a.fix.fixed.wilson[0] * 100) }}–{{ "%.0f"|format(a.fix.fixed.wilson[1] * 100) }}%
+            </div>
+          </div>
+        </article>
+      </div>
+      <article class="panel content-card">
+        <div class="cell-metrics">
+          <div><span>Observed lift</span><strong>{{ "%+.1f"|format(a.fix.lift_points) }} pts</strong></div>
+          <div><span>Two-proportion p-value</span><strong>{{ "%.4f"|format(a.fix.p_value) }}</strong></div>
+          <div><span>Non-overlapping Wilson intervals</span><strong>{{ "Yes" if a.fix.non_overlapping else "No" }}</strong></div>
+          <div><span>80% power MDE</span><strong>{{ a.fix.mde_points }} pts</strong></div>
+          <div><span>Inference</span><strong>{{ a.fix.verdict }}</strong></div>
+          <div><span>Fix guidance source</span><strong>{{ a.fix.generation_source }}</strong></div>
+          <div><span>Guidance-generation spend</span><strong>${{ "%.4f"|format(a.fix.generation_cost_usd) }}</strong></div>
+        </div>
+        <p class="cell-note">Applied fix instruction: {{ a.fix.fix_line }}</p>
+        {% if a.fix.generated_text %}
+        <p class="cell-note">Model-generated draft: {{ a.fix.generated_text }}</p>
+        {% endif %}
+        <p class="cell-note">Canned fallback retained: {{ a.fix.fallback_text }}</p>
+      </article>
+    </section>
+    {% endif %}
+
     <section aria-labelledby="fix-title">
       <div class="section-head"><div><h2 id="fix-title">Fix first</h2>
         <p>Ranked only from supported signals; suggested wording is ready to test.</p></div></div>

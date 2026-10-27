@@ -61,7 +61,7 @@ def build_cells(tasks: list[TaskSpec], ablation: bool = True, chaos: bool = True
 
 
 def make_perturbation(cell: CellSpec, task: TaskSpec) -> Perturbation:
-    if cell.kind == "baseline":
+    if cell.kind in {"baseline", "fix"}:
         return Baseline()
     if cell.kind == "ablation":
         chunk = task.chunk(cell.config["chunk"])
@@ -154,8 +154,13 @@ class GridRunner:
     def _execute(self, task: TaskSpec, cell: CellSpec, replicate: int = -1) -> RunResult:
         try:
             perturbation = make_perturbation(cell, task)
-            return self.runner.run(task, cell.id, cell.label, cell.kind,
-                                   perturbation, params=cell.config, replicate=replicate)
+            kwargs = {}
+            if "fix_line" in cell.config:
+                kwargs["fix_line"] = cell.config["fix_line"]
+            return self.runner.run(
+                task, cell.id, cell.label, cell.kind, perturbation,
+                params=cell.config, replicate=replicate, **kwargs,
+            )
         except Exception as exc:  # noqa: BLE001
             result = RunResult(
                 run_id=self.runner.next_run_id(), experiment_id=self.runner.store.experiment_id,

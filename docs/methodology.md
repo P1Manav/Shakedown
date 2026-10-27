@@ -80,6 +80,12 @@ SE=\sqrt{p_T(1-p_T)/n_T+p_C(1-p_C)/n_C}.
 
 Two-sided power is \(\Phi(-z_{\alpha/2}-|\Delta|/SE)+1-\Phi(z_{\alpha/2}-|\Delta|/SE)\). Shakedown solves this equation by bisection in each feasible direction and reports the smaller detectable absolute effect. The displayed MDE is a design sensitivity, not an observed effect.
 
+## Fix experiment
+
+The fix loop selects its instruction candidate from the original experiment's highest-ranked fragility, then generates a concise instruction from up to six failing run traces with the configured model. Generation reserves budget before the request, is capped at $0.02, and records the model draft, selected instruction, canned fallback, status, and spend. If traces are absent, the request exceeds the cap, or generation fails, the canned suggestion is used and the reason is retained.
+
+Evaluation uses fresh task workspaces and equal \(N\) in a no-fix control and a fix arm. Scheduler replicates assign the same task to both arms in a randomized, interleaved block; the control does not receive the instruction. The reported difference is the fix-arm rate minus the fresh control rate, with separate 95% Wilson intervals and a two-sided two-proportion test. A lift verdict additionally requires the observed difference to be strictly positive; comparing only with the originally selected low-performing cell is descriptive context and never the fix verdict. The fix MDE uses the fresh control rate and equal planned arm sizes at unadjusted two-sided \(\alpha=0.05\), 80% power.
+
 ## Sequential sampling
 
 At each planned look, Shakedown compares the cell with the baseline and spends at most \(\alpha/(mL)\), where \(m\) is the number of cells in that perturbation family and \(L\) is the planned number of batch looks. It evaluates only at batch boundaries. It stops for an effect when the raw p-value is below this per-look threshold, or for negligible effect when the simultaneous Newcombe interval rules out the configured meaningful drop. Clear cells stop early so remaining runs continue to accumulate on ambiguous cells. Final results still receive the configured Holm or BH correction within their family. The invalid-run threshold is operational rather than statistical: grid execution stops when invalid runs exceed 20% of all attempted runs.
