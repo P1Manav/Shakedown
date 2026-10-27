@@ -4,12 +4,10 @@ ablation:
 
 chaos:
   - {fault: truncate_output, tool: run_tests, keep_chars: 200}
-  - {fault: empty_result, tool: read_file}
   - {fault: empty_result, tool: read_file, persist: true}
   - {fault: malformed_json, tool: run_tests}
   - {fault: error_once, tool: write_file}
   - {fault: stale_file, tool: read_file}
-  - {fault: renamed_path, tool: read_file}
   - {fault: renamed_path, tool: read_file, persist: true}
   - {fault: added_latency, tool: read_file, delay_ms: 500}
 

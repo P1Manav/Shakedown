@@ -234,8 +234,10 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
             "p_adjustment_family": family,
             "family_size": family_sizes[family],
             "family_alpha": family_alpha,
-            "cell_analysis_alpha": cell_alpha,
-            "n": n, "k": k, "invalid_runs": sum(
+            "n": n, "k": k,
+            "planned_runs": meta.get("budget", {}).get("max_runs_per_cell", 40),
+            "achieved_runs": n,
+            "invalid_runs": sum(
                 1 for r in all_by_cell.get(cid, []) if r.get("invalid", False)),
             "tamper_detected": sum(
                 1 for r in all_by_cell.get(cid, []) if r.get("tamper_detected", False)),
@@ -354,7 +356,10 @@ def build_analysis(store: Store, meta: dict | None = None) -> dict:
         "started_at": min((r.get("started_at", "") for r in all_runs), default=""),
         "finished_at": meta.get("finished_at", ""),
         "elapsed_minutes": meta.get("elapsed_minutes"),
+        "status": "stopped_early" if meta.get("stopped_reason") else "complete",
         "stopped_reason": meta.get("stopped_reason", ""),
+        "planned_runs": meta.get("budget", {}).get("planned_runs") or (len(raw_cells) * (meta.get("budget", {}).get("max_runs_per_cell") or 40)),
+        "achieved_runs": len(all_runs),
         "correction": correction,
         "alpha": alpha,
         "meaningful_drop": meaningful_drop,

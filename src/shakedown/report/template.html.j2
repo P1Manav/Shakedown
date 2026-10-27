@@ -175,6 +175,13 @@
         <div class="eyebrow">Reliability profile · {{ a.summary.tasks }} task{% if a.summary.tasks != 1 %}s{% endif %}</div>
         <h1>What does your agent depend on?</h1>
         <p class="lead">Controlled prompt and tool perturbations reveal where this agent is robust, fragile, or still uncertain.</p>
+        {% if a.summary.stopped_reason %}
+        <div class="stopped-banner" style="background: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin: 16px 0; color: #fca5a5;">
+          <div style="font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #ef4444; margin-bottom: 4px;">Status: Stopped Early</div>
+          <div style="font-size: 13px; line-height: 1.5; color: #e2e8f0;">Reason: <strong>{{ a.summary.stopped_reason }}</strong></div>
+          <div style="font-size: 12px; margin-top: 6px; color: #94a3b8;">Runs achieved: <strong>{{ a.summary.runs }}</strong> / planned: <strong>{{ a.summary.planned_runs }}</strong>. Cells with insufficient sample sizes are formally flagged as underpowered.</div>
+        </div>
+        {% endif %}
         <div class="baseline-row">
           <div class="baseline-value">{{ "%.0f"|format(a.baseline.rate * 100) }}%</div>
           <div class="baseline-meta"><strong>Baseline pass rate</strong>
@@ -185,7 +192,8 @@
         </div>
       </div>
       <aside class="panel hero-side" aria-label="Run metrics">
-        <div class="mini-stat"><span>Total runs</span><strong>{{ a.summary.runs }}</strong></div>
+        <div class="mini-stat"><span>Execution status</span><strong style="color: {% if a.summary.stopped_reason %}#fca5a5{% else %}#86efac{% endif %};">{% if a.summary.stopped_reason %}Stopped Early{% else %}Complete{% endif %}</strong></div>
+        <div class="mini-stat"><span>Total runs</span><strong>{{ a.summary.runs }} / {{ a.summary.planned_runs }}</strong></div>
         <div class="mini-stat"><span>Invalid runs</span><strong>{{ a.summary.invalid_runs }}</strong></div>
         <div class="mini-stat"><span>Tampered runs</span><strong>{{ a.summary.tampering_runs }}</strong></div>
         <div class="mini-stat"><span>Model calls</span><strong>{{ a.summary.calls }}</strong></div>
@@ -207,7 +215,7 @@
         <article class="heat-cell {{ c.verdict|replace(' ', '-') }}" data-kind="{{ c.kind }}">
           <div class="cell-top"><span class="kind">{{ c.kind }}</span><span class="verdict">{{ c.verdict }}</span></div>
           <div class="cell-title">{{ c.label }}</div>
-          <div class="rate-line"><span>{{ c.k }}/{{ c.n }} passed</span><strong>{{ "%.0f"|format(c.rate * 100) }}%</strong></div>
+          <div class="rate-line"><span>{{ c.k }}/{{ c.n }} passed (planned {{ c.planned_runs }})</span><strong>{{ "%.0f"|format(c.rate * 100) }}%</strong></div>
           <div class="track" role="img" aria-label="{{ "%.0f"|format(c.rate * 100) }} percent passed">
             <div class="fill" style="width: {{ "%.1f"|format(c.rate * 100) }}%"></div></div>
           <div class="cell-metrics">

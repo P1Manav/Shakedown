@@ -84,6 +84,12 @@ python -m shakedown estimate
 
 ## Results from the Committed Sample Run
 
+> [!WARNING]
+> **Execution Status: Stopped Early (Wall-Clock Cap Reached)**
+> - **Stopped Reason:** Wall-clock cap reached (`60.0 min` limit; elapsed 65.3 min).
+> - **Runs Achieved vs Planned:** 216 achieved runs (8 runs/cell across 27 conditions; 2 runs per task stratum) out of 810 planned runs.
+> - **Statistical Power & MDE:** With $N = 8$ per cell, the minimum detectable effect (MDE) is ~50 percentage points. Cells with observed drops are underpowered and rigorously labeled **Inconclusive** under familywise Holm correction ($p_{adj} > 0.05$). Shakedown refuses to declare statistical significance on underpowered early stops.
+
 The following results come directly from the committed benchmark run in [`examples/sample_analysis.json`](examples/sample_analysis.json) (216 runs across 4 tasks on `llama3.1:8b-instruct-q4_K_M`, 2,510 model calls, 4.05M tokens, $0.00 spend):
 
 | Condition / Cell | Type | Pass Rate | Δ vs Base | Raw p | Adjusted p (Holm) | Formally Conclusive? |
@@ -174,6 +180,18 @@ During execution:
 - The proxy forces configured model and temperature parameters.
 - Perturbations (prompt edits or tool result corruptions) are injected transparently.
 - All requests and responses are traced with exact token counts and latency.
+
+### Proven Real Third-Party Agent: `mini-swe-agent` (v2.4.6)
+
+Shakedown was empirically validated with [`mini-swe-agent`](https://github.com/swe-agent/mini-swe-agent) (`v2.4.6`), a real tool-using agent, routing its completions through Shakedown's reverse proxy using only `OPENAI_BASE_URL`:
+
+- **Agent:** `mini-swe-agent` (v2.4.6) with `LocalEnvironment`
+- **Proxy Configuration:** `OPENAI_BASE_URL=http://127.0.0.1:{port}/run/{run_id}/v1`
+- **Model:** `llama3.1:8b-instruct-q4_K_M` via local Ollama ($0.00 spend)
+- **Intercepted Requests:** 3 model turns (2,564 prompt tokens, 240 completion tokens in 5.65s)
+- **Tool Actions Captured:** `mswea_bash_command: cat calc.py`
+- **Logged Events:** 9 trace events recorded in JSONL trace (`runs/mini-swe-agent-proof/traces/`)
+- **Claim Detection:** Derived directly from assistant completions without an LLM judge
 
 ---
 

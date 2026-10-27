@@ -130,7 +130,6 @@ def test_build_cells_includes_added_latency_and_noise_and_persistent_variants():
     assert "noise:reorder_tools" in cell_ids
     assert "noise:typos" in cell_ids
     assert "noise:paraphrase" in cell_ids
-    assert "chaos:empty_result:read_file" in cell_ids
     assert "chaos:empty_result:read_file:persist=True" in cell_ids
-    assert "chaos:renamed_path:read_file" in cell_ids
     assert "chaos:renamed_path:read_file:persist=True" in cell_ids
+

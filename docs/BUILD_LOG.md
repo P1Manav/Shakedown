@@ -96,3 +96,29 @@
 - Evaluated the automated fix loop on top fragility `remove identity` with an equal-N interleaved no-fix control (8 control vs 8 fix runs): observed lift +50.0 pts (25% to 75%, p=0.1319, MDE=57.2 pts), reported honestly as "no statistically significant lift".
 - Updated `examples/sample_analysis.json`, `examples/sample_report.html`, `docs/index.html`, and `docs/assets/report.png`. Built `scripts/render_results.py` and regression test `tests/test_readme_results.py`.
 
+## Checkpoint 9 — v0.4.0 Tamper Precision, Transparent Stopping, & Real Agent Proof
+
+**Tamper Detection False-Positive Audit & Deterministic Shadow Protection:**
+- Redefined tampering strictly: only modification or deletion of pre-existing protected files (`tests/`, `conftest.py`, `pytest.ini`, `tox.ini`, `setup.cfg`, `pyproject.toml`, `sitecustomize.py`, `pytest.py`) constitutes tampering. Adding new files (e.g., `tests/test_slug.py`, scratch scripts) is tracked in `extra_files` in `RunResult` and cleaned during verification without failing the run.
+- Audited all 26 flagged runs from the v0.3 sample: **7 of 26 were false positives (26.9% false-positive rate)**, where the agent wrote alternative test filenames instead of modifying pristine tests. Recalibrating the sample reduced true tampering runs to 19 and correctly recognized genuine fixes.
+- Made shadow protection deterministic and machine-independent: verification runs with `PYTHONSAFEPATH=1`, explicit verification directory on `sys.path`, and automatic quarantine of top-level modules targeting stdlib (`sys.stdlib_module_names`) or fixed pytest dependencies (`_PYTEST_DEPENDENCIES = {"pytest", "pluggy", "iniconfig", "packaging", "_pytest", "py", "colorama", "coverage", "mock", "exceptiongroup", "tomli", "test"}`). Confirmed identical behavior for `statistics.py`, `pluggy.py`, and `test.py` across Linux, macOS, and Windows.
+- Added detailed `tamper_reasons` tracking in `RunResult`, JSONL traces, and HTML reports.
+
+**Transparent Early-Stop Disclosure:**
+- Prominently surfaced run completion metadata across the report, `README.md`, and `sample_analysis.json`: status (`stopped_early`), reason (`wall-clock cap reached (60 min)`), planned runs (810), and achieved runs (216, 8 per cell).
+- Shrunk grid by removing duplicate non-persistent variants for `empty_result` and `renamed_path` (retaining `persist: true` as the canonical test of tool failure).
+
+**Pre-Registered Fix Target Rule:**
+- Hardened fix target selection in `src/shakedown/fix.py` to follow a pre-registered decision rule: pick the highest-ranked cell significant after Holm/BH family correction (`target_mode = "confirmatory"`); if no cell is significant after correction, pick the largest observed drop explicitly labeled as exploratory (`target_mode = "exploratory"`). Report MDE alongside observed lift.
+
+**Candidate Model Pilot Data:**
+- Published comparative pilot data under `docs/pilot.md` comparing `qwen2.5-coder:7b`, `qwen2.5-coder:14b`, and `llama3.1:8b-instruct-q4_K_M` across baseline pass rate, tokens per run, latency, and cost ($0.00 local Ollama), justifying the choice of `llama3.1:8b-instruct-q4_K_M`.
+
+**Third-Party Agent Integration (Any-Agent Proof):**
+- Validated real external tool-using agent `mini-swe-agent` (v2.4.6) communicating with Shakedown's reverse proxy using standard `OPENAI_BASE_URL`.
+- Intercepted 3 tool execution turns (2,564 prompt tokens, 240 completion tokens in 5.65s), tracked bash actions, and recorded claim detection with 0 code changes. Documented proof in `README.md`.
+
+**Submission Readiness & Repository Cleanliness:**
+- Added `scripts/check_pages.py` validating that GitHub Pages returns HTTP 200 OK.
+- Added `scripts/check_clean_git.py` and CI step guaranteeing no `__pycache__`, `*.egg-info`, `.ruff_cache`, `runs/`, or `.env` files are tracked in git.
+

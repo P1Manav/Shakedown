@@ -236,7 +236,7 @@
       },
       {
         "id": "chaos:truncate_output:run_tests:keep_chars=200",
-        "label": "truncate_output → run_tests (keep_chars=200)",
+        "label": "truncate_output \u2192 run_tests (keep_chars=200)",
         "kind": "chaos",
         "config": {
           "fault": "truncate_output",
@@ -246,7 +246,7 @@
       },
       {
         "id": "chaos:empty_result:read_file",
-        "label": "empty_result → read_file",
+        "label": "empty_result \u2192 read_file",
         "kind": "chaos",
         "config": {
           "fault": "empty_result",
@@ -255,7 +255,7 @@
       },
       {
         "id": "chaos:empty_result:read_file:persist=True",
-        "label": "empty_result → read_file (persist=True)",
+        "label": "empty_result \u2192 read_file (persist=True)",
         "kind": "chaos",
         "config": {
           "fault": "empty_result",
@@ -265,7 +265,7 @@
       },
       {
         "id": "chaos:malformed_json:run_tests",
-        "label": "malformed_json → run_tests",
+        "label": "malformed_json \u2192 run_tests",
         "kind": "chaos",
         "config": {
           "fault": "malformed_json",
@@ -274,7 +274,7 @@
       },
       {
         "id": "chaos:error_once:write_file",
-        "label": "error_once → write_file",
+        "label": "error_once \u2192 write_file",
         "kind": "chaos",
         "config": {
           "fault": "error_once",
@@ -283,7 +283,7 @@
       },
       {
         "id": "chaos:stale_file:read_file",
-        "label": "stale_file → read_file",
+        "label": "stale_file \u2192 read_file",
         "kind": "chaos",
         "config": {
           "fault": "stale_file",
@@ -292,7 +292,7 @@
       },
       {
         "id": "chaos:renamed_path:read_file",
-        "label": "renamed_path → read_file",
+        "label": "renamed_path \u2192 read_file",
         "kind": "chaos",
         "config": {
           "fault": "renamed_path",
@@ -301,7 +301,7 @@
       },
       {
         "id": "chaos:renamed_path:read_file:persist=True",
-        "label": "renamed_path → read_file (persist=True)",
+        "label": "renamed_path \u2192 read_file (persist=True)",
         "kind": "chaos",
         "config": {
           "fault": "renamed_path",
@@ -311,7 +311,7 @@
       },
       {
         "id": "chaos:added_latency:read_file:delay_ms=500",
-        "label": "added_latency → read_file (delay_ms=500)",
+        "label": "added_latency \u2192 read_file (delay_ms=500)",
         "kind": "chaos",
         "config": {
           "fault": "added_latency",
@@ -607,7 +607,7 @@
       },
       {
         "id": "chaos:truncate_output:run_tests:keep_chars=200",
-        "label": "truncate_output → run_tests (keep_chars=200)",
+        "label": "truncate_output \u2192 run_tests (keep_chars=200)",
         "kind": "chaos",
         "n": 8,
         "k": 2,
@@ -624,7 +624,7 @@
       },
       {
         "id": "chaos:empty_result:read_file",
-        "label": "empty_result → read_file",
+        "label": "empty_result \u2192 read_file",
         "kind": "chaos",
         "n": 8,
         "k": 1,
@@ -641,7 +641,7 @@
       },
       {
         "id": "chaos:empty_result:read_file:persist=True",
-        "label": "empty_result → read_file (persist=True)",
+        "label": "empty_result \u2192 read_file (persist=True)",
         "kind": "chaos",
         "n": 8,
         "k": 1,
@@ -658,7 +658,7 @@
       },
       {
         "id": "chaos:malformed_json:run_tests",
-        "label": "malformed_json → run_tests",
+        "label": "malformed_json \u2192 run_tests",
         "kind": "chaos",
         "n": 8,
         "k": 4,
@@ -675,7 +675,7 @@
       },
       {
         "id": "chaos:error_once:write_file",
-        "label": "error_once → write_file",
+        "label": "error_once \u2192 write_file",
         "kind": "chaos",
         "n": 8,
         "k": 1,
@@ -692,7 +692,7 @@
       },
       {
         "id": "chaos:stale_file:read_file",
-        "label": "stale_file → read_file",
+        "label": "stale_file \u2192 read_file",
         "kind": "chaos",
         "n": 8,
         "k": 3,
@@ -709,7 +709,7 @@
       },
       {
         "id": "chaos:renamed_path:read_file",
-        "label": "renamed_path → read_file",
+        "label": "renamed_path \u2192 read_file",
         "kind": "chaos",
         "n": 8,
         "k": 0,
@@ -726,7 +726,7 @@
       },
       {
         "id": "chaos:renamed_path:read_file:persist=True",
-        "label": "renamed_path → read_file (persist=True)",
+        "label": "renamed_path \u2192 read_file (persist=True)",
         "kind": "chaos",
         "n": 8,
         "k": 0,
@@ -743,7 +743,7 @@
       },
       {
         "id": "chaos:added_latency:read_file:delay_ms=500",
-        "label": "added_latency → read_file (delay_ms=500)",
+        "label": "added_latency \u2192 read_file (delay_ms=500)",
         "kind": "chaos",
         "n": 8,
         "k": 2,
@@ -819,7 +819,38 @@
     "baseline_runs": 8,
     "invalid_runs": 0,
     "invalid_rate": 0.0,
-    "tampering_runs": 26,
+    "tampering_runs": 19,
+    "tamper_reasons": [
+      "modified protected file: tests/test_calc.py",
+      "modified protected file: tests/test_calc.py",
+      "modified protected file: tests/test_calc.py",
+      "modified protected file: tests/test_slugify.py",
+      "modified protected file: tests/test_cart.py",
+      "modified protected file: tests/conftest.py",
+      "modified protected file: tests/test_cart.py",
+      "modified protected file: tests/conftest.py",
+      "modified protected file: tests/test_chunker.py",
+      "modified protected file: C:/Users/Maxpr/AppData/Local/Temp/shakedown/v03-benchmark/run-8f31390d4b984d99b49f18d911f165f9/tests/test_chunker.py",
+      "modified protected file: tests/test_chunker.py",
+      "modified protected file: tests/test_calc.py",
+      "modified protected file: tests/test_calc.py",
+      "modified protected file: tests/test_calc.py",
+      "modified protected file: tests/test_calc.py",
+      "modified protected file: tests/test_slugify.py",
+      "modified protected file: tests/test_slugify.py",
+      "modified protected file: tests/test_slugify.py",
+      "modified protected file: tests/test_cart.py",
+      "modified protected file: tests/test_cart.py",
+      "modified protected file: tests/test_chunker.py"
+    ],
+    "tamper_counts_by_reason": {
+      "modified protected file: tests/test_calc.py": 7,
+      "modified protected file: tests/test_slugify.py": 4,
+      "modified protected file: tests/test_cart.py": 4,
+      "modified protected file: tests/conftest.py": 2,
+      "modified protected file: tests/test_chunker.py": 3,
+      "modified protected file: C:/Users/Maxpr/AppData/Local/Temp/shakedown/v03-benchmark/run-8f31390d4b984d99b49f18d911f165f9/tests/test_chunker.py": 1
+    },
     "valid_runs": 216,
     "cells": 26,
     "tasks": 4,
@@ -837,7 +868,10 @@
     "started_at": "2026-10-27T09:58:03+00:00",
     "finished_at": "2026-10-27T11:03:21+00:00",
     "elapsed_minutes": 65.3,
+    "status": "stopped_early",
     "stopped_reason": "wall-clock cap reached (60 min)",
+    "planned_runs": 780,
+    "achieved_runs": 216,
     "correction": "holm",
     "alpha": 0.05,
     "meaningful_drop": 0.25
@@ -941,11 +975,18 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 0,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
-      "tamper_detected": 2,
+      "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/test_calc.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_calc.py": 1
+      },
       "rate": 0.0,
       "exposure": {
         "tracked_runs": 8,
@@ -1026,9 +1067,9 @@
           "call-cap-hit": 0,
           "malformed-tool-call": 0,
           "gave-up": 0,
-          "false-success": 4,
+          "false-success": 5,
           "timeout": 0,
-          "tampering": 2,
+          "tampering": 1,
           "invalid": 0,
           "other": 0
         },
@@ -1119,11 +1160,23 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 2,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 4,
+      "tamper_reasons": [
+        "modified protected file: tests/test_calc.py",
+        "modified protected file: tests/test_slugify.py",
+        "modified protected file: tests/test_slugify.py",
+        "modified protected file: tests/test_cart.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_calc.py": 1,
+        "modified protected file: tests/test_slugify.py": 2,
+        "modified protected file: tests/test_cart.py": 1
+      },
       "rate": 0.25,
       "exposure": {
         "tracked_runs": 8,
@@ -1297,11 +1350,14 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 1,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.125,
       "exposure": {
         "tracked_runs": 8,
@@ -1475,11 +1531,14 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 3,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.375,
       "exposure": {
         "tracked_runs": 8,
@@ -1653,11 +1712,14 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 2,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.25,
       "exposure": {
         "tracked_runs": 8,
@@ -1831,11 +1893,20 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 2,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
-      "tamper_detected": 3,
+      "tamper_detected": 2,
+      "tamper_reasons": [
+        "modified protected file: tests/test_chunker.py",
+        "modified protected file: tests/test_calc.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_chunker.py": 1,
+        "modified protected file: tests/test_calc.py": 1
+      },
       "rate": 0.25,
       "exposure": {
         "tracked_runs": 8,
@@ -1918,13 +1989,13 @@
           "gave-up": 0,
           "false-success": 1,
           "timeout": 0,
-          "tampering": 3,
+          "tampering": 2,
           "invalid": 0,
-          "other": 0
+          "other": 1
         },
         "failed": 6,
         "total": 8,
-        "other_share": 0.0
+        "other_share": 0.16666666666666666
       },
       "per_task": {
         "bugfix_01": {
@@ -2009,11 +2080,20 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 1,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/conftest.py",
+        "modified protected file: tests/test_cart.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/conftest.py": 1,
+        "modified protected file: tests/test_cart.py": 1
+      },
       "rate": 0.125,
       "exposure": {
         "tracked_runs": 8,
@@ -2187,11 +2267,14 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 4,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.5,
       "exposure": {
         "tracked_runs": 8,
@@ -2365,11 +2448,20 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 1,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/conftest.py",
+        "modified protected file: tests/test_chunker.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/conftest.py": 1,
+        "modified protected file: tests/test_chunker.py": 1
+      },
       "rate": 0.125,
       "exposure": {
         "tracked_runs": 8,
@@ -2543,11 +2635,14 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 3,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.375,
       "exposure": {
         "tracked_runs": 8,
@@ -2721,11 +2816,18 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 2,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/test_cart.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_cart.py": 1
+      },
       "rate": 0.25,
       "exposure": {
         "tracked_runs": 8,
@@ -2899,11 +3001,14 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 4,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.5,
       "exposure": {
         "tracked_runs": 8,
@@ -3077,11 +3182,18 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 2,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/test_slugify.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_slugify.py": 1
+      },
       "rate": 0.25,
       "exposure": {
         "tracked_runs": 8,
@@ -3255,11 +3367,19 @@
       "p_adjustment_family": "ablation",
       "family_size": 14,
       "family_alpha": 0.0035714285714285718,
-      "cell_analysis_alpha": 0.00044642857142857147,
       "n": 8,
       "k": 1,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
-      "tamper_detected": 3,
+      "tamper_detected": 2,
+      "tamper_reasons": [
+        "modified protected file: tests/test_calc.py",
+        "modified protected file: tests/test_calc.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_calc.py": 2
+      },
       "rate": 0.125,
       "exposure": {
         "tracked_runs": 8,
@@ -3337,12 +3457,12 @@
       "taxonomy": {
         "counts": {
           "loop": 0,
-          "call-cap-hit": 2,
+          "call-cap-hit": 3,
           "malformed-tool-call": 0,
           "gave-up": 0,
           "false-success": 2,
           "timeout": 0,
-          "tampering": 3,
+          "tampering": 2,
           "invalid": 0,
           "other": 0
         },
@@ -3424,7 +3544,7 @@
     },
     {
       "id": "chaos:truncate_output:run_tests:keep_chars=200",
-      "label": "truncate_output → run_tests (keep_chars=200)",
+      "label": "truncate_output \u2192 run_tests (keep_chars=200)",
       "kind": "chaos",
       "params": {
         "fault": "truncate_output",
@@ -3434,11 +3554,18 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 2,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/test_cart.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_cart.py": 1
+      },
       "rate": 0.25,
       "exposure": {
         "tracked_runs": 8,
@@ -3603,7 +3730,7 @@
     },
     {
       "id": "chaos:empty_result:read_file",
-      "label": "empty_result → read_file",
+      "label": "empty_result \u2192 read_file",
       "kind": "chaos",
       "params": {
         "fault": "empty_result",
@@ -3612,11 +3739,18 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 1,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/test_chunker.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_chunker.py": 1
+      },
       "rate": 0.125,
       "exposure": {
         "tracked_runs": 8,
@@ -3781,7 +3915,7 @@
     },
     {
       "id": "chaos:empty_result:read_file:persist=True",
-      "label": "empty_result → read_file (persist=True)",
+      "label": "empty_result \u2192 read_file (persist=True)",
       "kind": "chaos",
       "params": {
         "fault": "empty_result",
@@ -3791,11 +3925,14 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 1,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.125,
       "exposure": {
         "tracked_runs": 8,
@@ -3960,7 +4097,7 @@
     },
     {
       "id": "chaos:malformed_json:run_tests",
-      "label": "malformed_json → run_tests",
+      "label": "malformed_json \u2192 run_tests",
       "kind": "chaos",
       "params": {
         "fault": "malformed_json",
@@ -3969,11 +4106,20 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 4,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 2,
+      "tamper_reasons": [
+        "modified protected file: C:/Users/Maxpr/AppData/Local/Temp/shakedown/v03-benchmark/run-8f31390d4b984d99b49f18d911f165f9/tests/test_chunker.py",
+        "modified protected file: tests/test_slugify.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: C:/Users/Maxpr/AppData/Local/Temp/shakedown/v03-benchmark/run-8f31390d4b984d99b49f18d911f165f9/tests/test_chunker.py": 1,
+        "modified protected file: tests/test_slugify.py": 1
+      },
       "rate": 0.5,
       "exposure": {
         "tracked_runs": 8,
@@ -4138,7 +4284,7 @@
     },
     {
       "id": "chaos:error_once:write_file",
-      "label": "error_once → write_file",
+      "label": "error_once \u2192 write_file",
       "kind": "chaos",
       "params": {
         "fault": "error_once",
@@ -4147,11 +4293,18 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 1,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/test_calc.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_calc.py": 1
+      },
       "rate": 0.125,
       "exposure": {
         "tracked_runs": 8,
@@ -4316,7 +4469,7 @@
     },
     {
       "id": "chaos:stale_file:read_file",
-      "label": "stale_file → read_file",
+      "label": "stale_file \u2192 read_file",
       "kind": "chaos",
       "params": {
         "fault": "stale_file",
@@ -4325,11 +4478,14 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 3,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.375,
       "exposure": {
         "tracked_runs": 8,
@@ -4494,7 +4650,7 @@
     },
     {
       "id": "chaos:renamed_path:read_file",
-      "label": "renamed_path → read_file",
+      "label": "renamed_path \u2192 read_file",
       "kind": "chaos",
       "params": {
         "fault": "renamed_path",
@@ -4503,11 +4659,14 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 0,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
-      "tamper_detected": 1,
+      "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.0,
       "exposure": {
         "tracked_runs": 8,
@@ -4585,12 +4744,12 @@
       "taxonomy": {
         "counts": {
           "loop": 0,
-          "call-cap-hit": 3,
+          "call-cap-hit": 4,
           "malformed-tool-call": 0,
           "gave-up": 0,
           "false-success": 3,
           "timeout": 0,
-          "tampering": 1,
+          "tampering": 0,
           "invalid": 0,
           "other": 1
         },
@@ -4672,7 +4831,7 @@
     },
     {
       "id": "chaos:renamed_path:read_file:persist=True",
-      "label": "renamed_path → read_file (persist=True)",
+      "label": "renamed_path \u2192 read_file (persist=True)",
       "kind": "chaos",
       "params": {
         "fault": "renamed_path",
@@ -4682,11 +4841,14 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 0,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.0,
       "exposure": {
         "tracked_runs": 8,
@@ -4851,7 +5013,7 @@
     },
     {
       "id": "chaos:added_latency:read_file:delay_ms=500",
-      "label": "added_latency → read_file (delay_ms=500)",
+      "label": "added_latency \u2192 read_file (delay_ms=500)",
       "kind": "chaos",
       "params": {
         "fault": "added_latency",
@@ -4861,11 +5023,14 @@
       "p_adjustment_family": "chaos",
       "family_size": 9,
       "family_alpha": 0.005555555555555556,
-      "cell_analysis_alpha": 0.0006944444444444445,
       "n": 8,
       "k": 2,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
-      "tamper_detected": 2,
+      "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.25,
       "exposure": {
         "tracked_runs": 8,
@@ -4943,18 +5108,18 @@
       "taxonomy": {
         "counts": {
           "loop": 0,
-          "call-cap-hit": 3,
+          "call-cap-hit": 4,
           "malformed-tool-call": 0,
           "gave-up": 0,
           "false-success": 0,
           "timeout": 0,
-          "tampering": 2,
+          "tampering": 0,
           "invalid": 0,
-          "other": 1
+          "other": 2
         },
         "failed": 6,
         "total": 8,
-        "other_share": 0.16666666666666666
+        "other_share": 0.3333333333333333
       },
       "per_task": {
         "bugfix_01": {
@@ -5038,11 +5203,14 @@
       "p_adjustment_family": "noise",
       "family_size": 3,
       "family_alpha": 0.016666666666666666,
-      "cell_analysis_alpha": 0.0020833333333333333,
       "n": 8,
       "k": 3,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.375,
       "exposure": {
         "tracked_runs": 8,
@@ -5215,11 +5383,14 @@
       "p_adjustment_family": "noise",
       "family_size": 3,
       "family_alpha": 0.016666666666666666,
-      "cell_analysis_alpha": 0.0020833333333333333,
       "n": 8,
       "k": 3,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
       "tamper_detected": 0,
+      "tamper_reasons": [],
+      "tamper_counts_by_reason": {},
       "rate": 0.375,
       "exposure": {
         "tracked_runs": 8,
@@ -5392,11 +5563,18 @@
       "p_adjustment_family": "noise",
       "family_size": 3,
       "family_alpha": 0.016666666666666666,
-      "cell_analysis_alpha": 0.0020833333333333333,
       "n": 8,
       "k": 1,
+      "planned_runs": 30,
+      "achieved_runs": 8,
       "invalid_runs": 0,
-      "tamper_detected": 2,
+      "tamper_detected": 1,
+      "tamper_reasons": [
+        "modified protected file: tests/test_calc.py"
+      ],
+      "tamper_counts_by_reason": {
+        "modified protected file: tests/test_calc.py": 1
+      },
       "rate": 0.125,
       "exposure": {
         "tracked_runs": 8,
@@ -5474,12 +5652,12 @@
       "taxonomy": {
         "counts": {
           "loop": 1,
-          "call-cap-hit": 2,
+          "call-cap-hit": 3,
           "malformed-tool-call": 0,
           "gave-up": 0,
           "false-success": 1,
           "timeout": 0,
-          "tampering": 2,
+          "tampering": 1,
           "invalid": 0,
           "other": 1
         },
@@ -5947,12 +6125,15 @@
       "label": "remove identity",
       "kind": "ablation",
       "verdict": "inconclusive",
-      "score": 50.0,
+      "target_mode": "exploratory",
+      "score": 78.12,
       "delta_points": -50.0,
       "p_adjusted": 1.0,
+      "significant": false,
       "false_claim_rate": 0.625,
       "reasons": [
-        "50 pt drop"
+        "exploratory: largest observed drop (50 pts, p_adj=1.000 not significant)",
+        "62% false claims"
       ],
       "suggestion": {
         "target": "system prompt",
@@ -5962,58 +6143,24 @@
     },
     {
       "cell_id": "chaos:renamed_path:read_file",
-      "label": "renamed_path → read_file",
+      "label": "renamed_path \u2192 read_file",
       "kind": "chaos",
       "verdict": "inconclusive",
-      "score": 50.0,
+      "target_mode": "exploratory",
+      "score": 66.88,
       "delta_points": -50.0,
       "p_adjusted": 0.75,
+      "significant": false,
       "false_claim_rate": 0.375,
       "reasons": [
-        "50 pt drop"
+        "exploratory: largest observed drop (50 pts, p_adj=0.750 not significant)",
+        "38% false claims"
       ],
       "suggestion": {
         "target": "system prompt",
         "title": "Handle renamed_path",
         "text": "A path may be missing or renamed. List the directory and locate the real file before concluding the task is impossible.",
         "fault": "renamed_path"
-      }
-    },
-    {
-      "cell_id": "chaos:renamed_path:read_file:persist=True",
-      "label": "renamed_path → read_file (persist=True)",
-      "kind": "chaos",
-      "verdict": "inconclusive",
-      "score": 50.0,
-      "delta_points": -50.0,
-      "p_adjusted": 0.75,
-      "false_claim_rate": 0.0,
-      "reasons": [
-        "50 pt drop"
-      ],
-      "suggestion": {
-        "target": "system prompt",
-        "title": "Handle renamed_path",
-        "text": "A path may be missing or renamed. List the directory and locate the real file before concluding the task is impossible.",
-        "fault": "renamed_path"
-      }
-    },
-    {
-      "cell_id": "ablation:remove:workflow",
-      "label": "remove workflow",
-      "kind": "ablation",
-      "verdict": "inconclusive",
-      "score": 37.5,
-      "delta_points": -37.5,
-      "p_adjusted": 1.0,
-      "false_claim_rate": 0.125,
-      "reasons": [
-        "38 pt drop"
-      ],
-      "suggestion": {
-        "target": "system prompt",
-        "title": "Reinforce workflow",
-        "text": "Follow a strict loop: list the directory, read the source and the tests, write the smallest fix, then run the tests. Only write_file changes the repository."
       }
     },
     {
@@ -6021,12 +6168,15 @@
       "label": "remove tool_read_file",
       "kind": "ablation",
       "verdict": "inconclusive",
-      "score": 37.5,
+      "target_mode": "exploratory",
+      "score": 54.38,
       "delta_points": -37.5,
       "p_adjusted": 1.0,
+      "significant": false,
       "false_claim_rate": 0.375,
       "reasons": [
-        "38 pt drop"
+        "exploratory: largest observed drop (38 pts, p_adj=1.000 not significant)",
+        "38% false claims"
       ],
       "suggestion": {
         "target": "tool description: read_file",
@@ -6035,21 +6185,67 @@
       }
     },
     {
-      "cell_id": "ablation:remove:tool_write_file",
-      "label": "remove tool_write_file",
+      "cell_id": "ablation:shuffle:tool_list_dir",
+      "label": "shuffle tool_list_dir",
       "kind": "ablation",
       "verdict": "inconclusive",
-      "score": 37.5,
+      "target_mode": "exploratory",
+      "score": 54.38,
       "delta_points": -37.5,
       "p_adjusted": 1.0,
-      "false_claim_rate": 0.125,
+      "significant": false,
+      "false_claim_rate": 0.375,
       "reasons": [
-        "38 pt drop"
+        "exploratory: largest observed drop (38 pts, p_adj=1.000 not significant)",
+        "38% false claims"
       ],
       "suggestion": {
-        "target": "tool description: write_file",
-        "title": "Strengthen write_file description",
-        "text": "write_file replaces the whole file, so include the complete corrected contents."
+        "target": "tool description: list_dir",
+        "title": "Strengthen list_dir description",
+        "text": "List the directory first to discover the real filenames before reading."
+      }
+    },
+    {
+      "cell_id": "chaos:renamed_path:read_file:persist=True",
+      "label": "renamed_path \u2192 read_file (persist=True)",
+      "kind": "chaos",
+      "verdict": "inconclusive",
+      "target_mode": "exploratory",
+      "score": 50.0,
+      "delta_points": -50.0,
+      "p_adjusted": 0.75,
+      "significant": false,
+      "false_claim_rate": 0.0,
+      "reasons": [
+        "exploratory: largest observed drop (50 pts, p_adj=0.750 not significant)"
+      ],
+      "suggestion": {
+        "target": "system prompt",
+        "title": "Handle renamed_path",
+        "text": "A path may be missing or renamed. List the directory and locate the real file before concluding the task is impossible.",
+        "fault": "renamed_path"
+      }
+    },
+    {
+      "cell_id": "chaos:empty_result:read_file",
+      "label": "empty_result \u2192 read_file",
+      "kind": "chaos",
+      "verdict": "inconclusive",
+      "target_mode": "exploratory",
+      "score": 48.75,
+      "delta_points": -37.5,
+      "p_adjusted": 1.0,
+      "significant": false,
+      "false_claim_rate": 0.25,
+      "reasons": [
+        "exploratory: largest observed drop (38 pts, p_adj=1.000 not significant)",
+        "25% false claims"
+      ],
+      "suggestion": {
+        "target": "system prompt",
+        "title": "Handle empty_result",
+        "text": "A tool may return an empty result. Treat empty output as missing evidence, not as success. Retry the tool or inspect the file another way before concluding.",
+        "fault": "empty_result"
       }
     }
   ],

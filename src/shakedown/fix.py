@@ -240,6 +240,12 @@ def suggest_for_cell(cell: dict, task_chunks: dict) -> dict:
 
 
 def rank_fix_first(cells: list[dict], baseline_rate: float, task_chunks: dict) -> list[dict]:
+    # Pre-registered rule: highest-ranked cell that is significant after correction.
+    significant_cells = [
+        c for c in cells
+        if c.get("significant") and c.get("delta_points", 0.0) < 0
+    ]
+
     ranked = []
     for cell in cells:
         if not cell.get("n"):
@@ -247,15 +253,23 @@ def rank_fix_first(cells: list[dict], baseline_rate: float, task_chunks: dict) -
         verdict = cell.get("verdict")
         delta_points = cell.get("delta_points", 0.0)
         false_rate = (cell.get("claims") or {}).get("false_claim_rate", 0.0)
+        is_sig = bool(cell.get("significant"))
         score = 0.0
         reasons = []
-        if verdict == "critical":
-            score += max(0.0, -delta_points) + 15
-            reasons.append(f"{abs(delta_points):.0f} pt drop")
-        elif delta_points < 0:
-            score += max(0.0, -delta_points)
-            reasons.append(f"{abs(delta_points):.0f} pt drop")
-        if false_rate >= 0.10 and cell.get("significant"):
+
+        if significant_cells:
+            if not is_sig:
+                continue
+            target_mode = "confirmatory"
+            score += 100.0 + max(0.0, -delta_points)
+            reasons.append(f"significant {abs(delta_points):.0f} pt drop (p_adj={cell.get('p_adjusted'):.3f})")
+        else:
+            target_mode = "exploratory"
+            if delta_points < 0:
+                score += max(0.0, -delta_points)
+                reasons.append(f"exploratory: largest observed drop ({abs(delta_points):.0f} pts, p_adj={cell.get('p_adjusted'):.3f} not significant)")
+
+        if false_rate >= 0.10:
             score += false_rate * 45
             reasons.append(f"{false_rate * 100:.0f}% false claims")
         if (cell.get("cost") or {}).get("cost_risk"):
@@ -267,8 +281,10 @@ def rank_fix_first(cells: list[dict], baseline_rate: float, task_chunks: dict) -
         ranked.append({
             "cell_id": cell["id"], "label": cell["label"], "kind": cell.get("kind"),
             "verdict": verdict,
+            "target_mode": target_mode,
             "score": round(score, 2), "delta_points": delta_points,
             "p_adjusted": cell.get("p_adjusted"),
+            "significant": is_sig,
             "false_claim_rate": false_rate,
             "reasons": reasons,
             "suggestion": suggestion,

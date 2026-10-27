@@ -24,6 +24,8 @@ jobs:
           cache: pip
       - name: Install development dependencies
         run: python -m pip install -e ".[dev]"
+      - name: Verify clean repository (no unwanted artifacts tracked)
+        run: python scripts/check_clean_git.py
       - name: Lint
         run: ruff check src tests scripts
       - name: Unit tests
