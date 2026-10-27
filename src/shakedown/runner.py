@@ -7,10 +7,10 @@ and an executable success check that runs *after* the agent exits.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import hashlib
 import os
-import re
 import signal
 import shutil
 import subprocess
@@ -32,10 +32,23 @@ _PROTECTED_CONFIGS = {
     "pytest.ini", "tox.ini", "setup.cfg", "setup.py", "pyproject.toml",
     "conftest.py", "sitecustomize.py", "pytest.py",
 }
-_SECRET_ENV_NAME = re.compile(
-    r"(?:API[_-]?KEY|SECRET|TOKEN|PASSWORD|PASSWD|CREDENTIAL|AUTHORIZATION)",
-    re.IGNORECASE,
-)
+
+
+def _is_env_allowed(key: str) -> bool:
+    ukey = key.upper()
+    if ukey in {
+        "PATH", "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH",
+        "TEMP", "TMP", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR",
+        "COMSPEC", "PATHEXT", "TERM",
+    }:
+        return True
+    if ukey.startswith("LC_") or ukey == "LANG":
+        return True
+    if ukey.startswith("PYTHON"):
+        return True
+    if ukey.startswith("SHAKEDOWN_"):
+        return True
+    return False
 
 
 def _is_protected(relative: Path) -> bool:
@@ -58,41 +71,105 @@ def _protected_snapshot(source: Path) -> dict[Path, bytes]:
     }
 
 
-def _restore_verification_workspace(workdir: Path, verification: Path,
-                                    pristine: dict[Path, bytes]) -> bool:
+def _restore_verification_workspace(
+    workdir: Path,
+    verification: Path,
+    pristine: dict[Path, bytes],
+    hidden_tests_dir: Path | None = None,
+) -> bool:
     shutil.copytree(workdir, verification)
-    actual = {
-        path.relative_to(verification): path.read_bytes()
-        for path in verification.rglob("*")
-        if path.is_file() and _is_protected(path.relative_to(verification))
-    }
-    tampered = actual != pristine
+
+    # 1. Delete all __pycache__ and *.pyc
+    for pycache in list(verification.rglob("__pycache__")):
+        shutil.rmtree(pycache, ignore_errors=True)
+    for pyc in list(verification.rglob("*.pyc")):
+        try:
+            pyc.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    # 2. Compare protected paths case-insensitively (casefold)
+    pristine_by_cf = {str(p).casefold(): (p, content) for p, content in pristine.items()}
+    actual_protected_files = [
+        p for p in verification.rglob("*")
+        if p.is_file() and _is_protected(p.relative_to(verification))
+    ]
+    tampered = False
+    for p in actual_protected_files:
+        rel = p.relative_to(verification)
+        rel_cf = str(rel).casefold()
+        if rel_cf not in pristine_by_cf:
+            tampered = True
+        else:
+            _, expected_content = pristine_by_cf[rel_cf]
+            if p.read_bytes() != expected_content:
+                tampered = True
+
+    actual_cf_set = {str(p.relative_to(verification)).casefold() for p in actual_protected_files}
+    for rel_cf in pristine_by_cf:
+        if rel_cf not in actual_cf_set:
+            tampered = True
+
+    # 3. Reject ANY new top-level .py/dir that shadows an installed module name
+    allowed_top_level = {p.parts[0].casefold() for p in pristine}
+    allowed_top_level.update({"tests", "hidden_tests", ".git", "readme.md"})
+
+    for item in list(verification.iterdir()):
+        name_cf = item.name.casefold()
+        if name_cf not in allowed_top_level:
+            stem = item.stem if item.is_file() and item.suffix == ".py" else item.name
+            is_shadowing = False
+            try:
+                spec = importlib.util.find_spec(stem)
+                if spec is not None and spec.origin:
+                    spec_path = Path(spec.origin).resolve()
+                    if not spec_path.is_relative_to(verification.resolve()):
+                        is_shadowing = True
+            except (ValueError, ImportError, AttributeError):
+                is_shadowing = False
+
+            if is_shadowing:
+                tampered = True
+                if item.is_dir():
+                    shutil.rmtree(item, ignore_errors=True)
+                else:
+                    try:
+                        item.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+
+    # 4. Clean tests/ and restore pristine protected files
     tests_dir = verification / "tests"
     if tests_dir.exists():
         shutil.rmtree(tests_dir)
 
-    for path in sorted(
-        (p for p in verification.rglob("*") if p.is_dir() and p.name == "pytest"),
-        key=lambda item: len(item.parts),
-        reverse=True,
-    ):
-        relative = path.relative_to(verification)
-        if not any(relative in expected.parents for expected in pristine):
-            tampered = True
-            shutil.rmtree(path)
+    for path in list(verification.rglob("*")):
+        if path.is_file() and _is_protected(path.relative_to(verification)):
+            rel_cf = str(path.relative_to(verification)).casefold()
+            if rel_cf not in pristine_by_cf:
+                path.unlink(missing_ok=True)
 
-    candidates = [
-        path for path in verification.rglob("*")
-        if path.is_file() and _is_protected(path.relative_to(verification))
-    ]
-    for path in candidates:
-        relative = path.relative_to(verification)
-        if relative not in pristine:
-            path.unlink()
     for relative, content in pristine.items():
         destination = verification / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(content)
+
+    # 5. If hidden_tests_dir exists, copy hidden tests into verification/tests/
+    if hidden_tests_dir and Path(hidden_tests_dir).exists():
+        dest_tests = verification / "tests"
+        dest_tests.mkdir(parents=True, exist_ok=True)
+        for hidden_file in Path(hidden_tests_dir).glob("*.py"):
+            shutil.copy2(hidden_file, dest_tests / hidden_file.name)
+
+    # 6. Final cleanup of any __pycache__ and *.pyc
+    for pycache in list(verification.rglob("__pycache__")):
+        shutil.rmtree(pycache, ignore_errors=True)
+    for pyc in list(verification.rglob("*.pyc")):
+        try:
+            pyc.unlink(missing_ok=True)
+        except OSError:
+            pass
+
     return tampered
 
 
@@ -117,7 +194,7 @@ def _build_agent_environment(task: TaskSpec, run_id: str, workdir: Path,
                              proxy_base_url: str) -> dict[str, str]:
     env = {
         key: value for key, value in os.environ.items()
-        if not _SECRET_ENV_NAME.search(key)
+        if _is_env_allowed(key)
     }
     env.update({
         "OPENAI_BASE_URL": proxy_base_url,
@@ -373,11 +450,19 @@ class Runner:
         verification = self.work_root / f"{run_id}-verification"
         if verification.exists():
             shutil.rmtree(verification, ignore_errors=True)
+        hidden_tests = task.path.parent / "hidden_tests"
         tamper_detected = _restore_verification_workspace(
-            workdir, verification, pristine_protected
+            workdir, verification, pristine_protected,
+            hidden_tests_dir=hidden_tests if hidden_tests.exists() else None,
+        )
+        verification_env = dict(env)
+        verification_env["PYTHONDONTWRITEBYTECODE"] = "1"
+        verification_env["PYTHONSAFEPATH"] = "1"
+        verification_env["PYTHONPATH"] = str(verification) + (
+            os.pathsep + env.get("PYTHONPATH", "") if env.get("PYTHONPATH") else ""
         )
         test_exit, test_out, test_err, test_timeout = run_command(
-            task.success_command, verification, env, task.success_timeout_s)
+            task.success_command, verification, verification_env, task.success_timeout_s)
         success = (not tamper_detected and not test_timeout and test_exit == 0)
 
         marker_final, marker_actions, marker_events = parse_agent_output(stdout)

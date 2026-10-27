@@ -39,6 +39,7 @@ shakedown = [
   "data/tasks/bugfix_*/repo/*.py",
   "data/tasks/bugfix_*/repo/*.md",
   "data/tasks/bugfix_*/repo/tests/*.py",
+  "data/tasks/bugfix_*/hidden_tests/*.py",
   "data/tasks/bugfix_*/solution/*.py",
 ]
 
