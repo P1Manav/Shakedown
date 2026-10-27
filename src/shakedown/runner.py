@@ -76,6 +76,7 @@ def _restore_verification_workspace(
     verification: Path,
     pristine: dict[Path, bytes],
     hidden_tests_dir: Path | None = None,
+    task_source: Path | None = None,
 ) -> bool:
     shutil.copytree(workdir, verification)
 
@@ -112,6 +113,8 @@ def _restore_verification_workspace(
 
     # 3. Reject ANY new top-level .py/dir that shadows an installed module name
     allowed_top_level = {p.parts[0].casefold() for p in pristine}
+    if task_source and Path(task_source).exists():
+        allowed_top_level.update({p.name.casefold() for p in Path(task_source).iterdir()})
     allowed_top_level.update({"tests", "hidden_tests", ".git", "readme.md"})
 
     for item in list(verification.iterdir()):
@@ -458,6 +461,7 @@ class Runner:
         tamper_detected = _restore_verification_workspace(
             workdir, verification, pristine_protected,
             hidden_tests_dir=hidden_tests if hidden_tests.exists() else None,
+            task_source=task.source,
         )
         verification_env = dict(env)
         verification_env["PYTHONDONTWRITEBYTECODE"] = "1"

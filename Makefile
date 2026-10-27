@@ -15,7 +15,7 @@ estimate:
 	$(PYTHON) -m shakedown estimate
 
 demo: selftest
-	$(PYTHON) -m shakedown demo --runs 60 --max-runs 60 --min-runs 30 --fix-runs 60 --workers 3 --max-minutes 60 --max-usd 15
+	$(PYTHON) -m shakedown demo --runs 30 --max-runs 30 --min-runs 16 --noise --fix-runs 30 --workers 3 --max-minutes 60 --max-usd 15
 
 baseline:
 	$(PYTHON) -m shakedown run --baseline -n 60

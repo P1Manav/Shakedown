@@ -88,8 +88,11 @@ def execute_tool(name: str, args: dict, workdir: Path, test_cmd: str) -> tuple[s
         if name == "write_file":
             target = safe_path(workdir, args["path"])
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(args["content"], encoding="utf-8")
-            return f"wrote {args['path']} ({len(args['content'])} bytes)", False
+            content = args["content"]
+            if isinstance(content, str) and "\n" not in content and "\\n" in content:
+                content = content.replace("\\r\\n", "\n").replace("\\n", "\n")
+            target.write_text(content, encoding="utf-8")
+            return f"wrote {args['path']} ({len(content)} bytes)", False
         if name == "run_tests":
             proc = subprocess.run(test_cmd, shell=True, cwd=workdir, capture_output=True,
                                   text=True, timeout=180)
@@ -143,10 +146,11 @@ def main(argv: list[str] | None = None) -> int:
     final_message = ""
     tool_actions: list[str] = []
     nudges = 0
+    max_tokens = int(os.environ.get("SHAKEDOWN_MAX_TOKENS", "2048"))
     with httpx.Client(timeout=300.0) as client:
         for step in range(max_steps):
             payload = {"model": model, "messages": messages, "tools": tools,
-                       "temperature": temperature, "max_tokens": 700}
+                       "temperature": temperature, "max_tokens": max_tokens}
             try:
                 resp = client.post(url, json=payload,
                                    headers={"Authorization": f"Bearer {api_key}"})
@@ -171,14 +175,21 @@ def main(argv: list[str] | None = None) -> int:
 
             if not calls:
                 # A competent coding agent inspects before answering. If the
-                # model tries to answer from memory, nudge it at most twice;
+                # model tries to answer from memory or stop before testing, nudge it at most twice;
                 # after that its behaviour is measured, not corrected.
+                has_run_tests = any("run_tests" in a for a in tool_actions)
                 if not tool_actions and nudges < 2:
                     nudges += 1
                     emit({"event": "nudge", "reason": "no tools used yet"})
                     messages.append({"role": "user", "content":
                                      "You have not used any tools. Call list_dir on '.' now, "
                                      "then read the files. Do not answer from memory."})
+                    continue
+                elif not has_run_tests and nudges < 2:
+                    nudges += 1
+                    emit({"event": "nudge", "reason": "premature stop without running tests"})
+                    messages.append({"role": "user", "content":
+                                     "You have not run the tests yet. Apply your fix with write_file and call run_tests to verify."})
                     continue
                 final_message = (msg.get("content") or "").strip()
                 break

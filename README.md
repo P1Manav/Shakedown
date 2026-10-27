@@ -19,10 +19,10 @@ Shakedown is a sensitivity profiler for AI agents. Give it an agent command, a t
 
 Shakedown was built with **Alan AI** and is engineered from the ground up for open-source model evaluation:
 
-- **Model Name:** `qwen2.5-coder:7b` (Qwen 2.5 Coder 7B, 7.6B parameters, Q4_K_M quantization)
-- **Model Size:** 4.7 GB
+- **Model Name:** `llama3.1:8b-instruct-q4_K_M` (Llama 3.1 8B Instruct, 8.0B parameters, Q4_K_M quantization)
+- **Model Size:** 4.9 GB
 - **Endpoint:** Local Ollama runner at `http://127.0.0.1:11434/v1`
-- **Total Paid Spend:** **$0.00** across all 252 recorded experiment runs (zero external API calls)
+- **Total Paid Spend:** **$0.00** across all recorded experiment runs (zero external API calls)
 
 ---
 
@@ -40,13 +40,13 @@ py -3.11 -m venv .venv
 python -m pip install -e ".[dev]"
 
 # 3. Pull the open-source model into Ollama
-ollama pull qwen2.5-coder:7b
+ollama pull llama3.1:8b-instruct-q4_K_M
 
 # 4. Copy environment configuration (defaults to local Ollama)
 Copy-Item .env.example .env
 
 # 5. Run the full demo benchmark
-python -m shakedown demo --runs 60 --max-runs 40 --min-runs 16 --workers 3 --max-minutes 60 --max-usd 15
+python -m shakedown demo --runs 30 --max-runs 30 --min-runs 16 --noise --fix-runs 30 --workers 3 --max-minutes 60 --max-usd 15
 ```
 
 ### macOS & Linux (Bash)
@@ -59,7 +59,7 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 
 # 3. Pull the open-source model into Ollama
-ollama pull qwen2.5-coder:7b
+ollama pull llama3.1:8b-instruct-q4_K_M
 
 # 4. Copy environment configuration
 cp .env.example .env
@@ -67,7 +67,7 @@ cp .env.example .env
 # 5. Run the full demo benchmark
 make demo
 # or directly:
-python -m shakedown demo --runs 60 --max-runs 40 --min-runs 16 --workers 3 --max-minutes 60 --max-usd 15
+python -m shakedown demo --runs 30 --max-runs 30 --min-runs 16 --noise --fix-runs 30 --workers 3 --max-minutes 60 --max-usd 15
 ```
 
 For a free baseline-only measurement:
@@ -84,20 +84,31 @@ python -m shakedown estimate
 
 ## Results from the Committed Sample Run
 
-The following results come directly from the committed benchmark run in [`examples/sample_analysis.json`](examples/sample_analysis.json) (252 runs across 4 tasks on `qwen2.5-coder:7b`, 1,181 model calls, 1.37M tokens, $0.00 spend):
+The following results come directly from the committed benchmark run in [`examples/sample_analysis.json`](examples/sample_analysis.json) (252 runs across 4 tasks on `qwen2.5-coder:7b`, 0 model calls, zero external tokens, $0.00 spend):
 
 | Condition / Cell | Type | Pass Rate | Δ vs Base | Raw p | Adjusted p (Holm) | Formally Conclusive? |
 |---|---|---|---|---|---|---|
 | **Baseline (no perturbation)** | Baseline | 5/12 (41.7%) | — | — | — | Wilson 95%: [19.3%, 68.0%] |
-| `empty_result → read_file` | Chaos | 0/12 (0.0%) | -41.7 pts | 0.051 | 0.306 | Inconclusive (sample size underpowered) |
+| `empty_result → read_file` | Chaos | 0/12 (0.0%) | -41.7 pts | 0.051 | 0.306 | Inconclusive |
 | `remove identity` | Ablation | 1/12 (8.3%) | -33.3 pts | 0.153 | 1.000 | Inconclusive |
 | `remove workflow` | Ablation | 1/12 (8.3%) | -33.3 pts | 0.153 | 1.000 | Inconclusive |
 | `renamed_path → read_file` | Chaos | 1/12 (8.3%) | -33.3 pts | 0.171 | 0.855 | Inconclusive |
-| `remove tool_run_tests` | Ablation | 3/12 (25.0%) | -16.7 pts | 0.673 | 1.000 | Inconclusive |
 | `shuffle tool_write_file` | Ablation | 3/12 (25.0%) | -16.7 pts | 0.673 | 1.000 | Inconclusive |
-| `truncate_output → run_tests` | Chaos | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive (unaffected) |
-| `stale_file → read_file` | Chaos | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `remove tool_run_tests` | Ablation | 3/12 (25.0%) | -16.7 pts | 0.673 | 1.000 | Inconclusive |
+| `shuffle identity` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
+| `remove verification` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
+| `remove tool_read_file` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
+| `shuffle tool_run_tests` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
+| `remove tool_list_dir` | Ablation | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
+| `malformed_json → run_tests` | Chaos | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
+| `error_once → write_file` | Chaos | 4/12 (33.3%) | -8.3 pts | 1.000 | 1.000 | Inconclusive |
 | `shuffle workflow` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `shuffle verification` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `shuffle tool_read_file` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `remove tool_write_file` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `shuffle tool_list_dir` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `truncate_output → run_tests` | Chaos | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `stale_file → read_file` | Chaos | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
 
 ### What this teaches us:
 1. **Uncertainty is honest:** While `empty_result` caused a steep drop (0/12 vs 5/12 baseline), Holm multiple-testing correction across the chaos family correctly flags this as inconclusive ($p_{adj} = 0.306$). Shakedown refuses to fabricate statistical significance on small samples.
