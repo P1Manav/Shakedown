@@ -17,6 +17,8 @@ def test_agent_environment_allowlist():
 
     old_env = dict(os.environ)
     try:
+        os.environ["TEMP"] = "/tmp/shakedown_test"
+        os.environ["TMP"] = "/tmp/shakedown_test"
         os.environ["AWS_ACCESS_KEY_ID"] = "AKIA_SECRET_TEST"
         os.environ["GITHUB_PAT"] = "ghp_SECRET_PAT_TEST"
         os.environ["SSH_AUTH_SOCK"] = "/tmp/ssh-agent.sock"
@@ -38,7 +40,7 @@ def test_agent_environment_allowlist():
         # Allowlisted variables must be present
         assert "PATH" in env
         assert ("HOME" in env or "USERPROFILE" in env)
-        assert ("TEMP" in env or "TMP" in env or "SystemRoot" in env or "SYSTEMROOT" in env)
+        assert ("TEMP" in env or "TMP" in env or "TMPDIR" in env)
         assert env["OPENAI_BASE_URL"] == "http://127.0.0.1:9999/v1"
         assert env["SHAKEDOWN_RUN_ID"] == "run-env-test"
         assert env["PYTHONUNBUFFERED"] == "1"

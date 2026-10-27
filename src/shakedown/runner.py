@@ -38,7 +38,7 @@ def _is_env_allowed(key: str) -> bool:
     ukey = key.upper()
     if ukey in {
         "PATH", "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH",
-        "TEMP", "TMP", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR",
+        "TEMP", "TMP", "TMPDIR", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR",
         "COMSPEC", "PATHEXT", "TERM",
     }:
         return True
@@ -196,6 +196,10 @@ def _build_agent_environment(task: TaskSpec, run_id: str, workdir: Path,
         key: value for key, value in os.environ.items()
         if _is_env_allowed(key)
     }
+    tmp_dir = tempfile.gettempdir()
+    env.setdefault("TEMP", tmp_dir)
+    env.setdefault("TMP", tmp_dir)
+    env.setdefault("TMPDIR", tmp_dir)
     env.update({
         "OPENAI_BASE_URL": proxy_base_url,
         "OPENAI_API_KEY": "dummy",
@@ -305,7 +309,7 @@ def parse_proxy_trace(trace: list[dict]) -> dict:
 
         text = "".join(response_text).strip()
         if text and not calls:
-            from shakedown.demo_agent.agent import parse_text_tool_call
+            from shakedown.tool_parser import parse_text_tool_call
 
             text_call = parse_text_tool_call(text, len(actions))
             if text_call:

@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shakedown-agent-profiler"
-version = "0.2.0"
+version = "0.3.0"
 description = "A sensitivity profiler for AI agents: reliability, context ablation, and chaos testing with honest statistics."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Manav Prajapati" }]
 urls = { Homepage = "https://github.com/P1Manav/Shakedown", Repository = "https://github.com/P1Manav/Shakedown", Issues = "https://github.com/P1Manav/Shakedown/issues" }
 dependencies = [

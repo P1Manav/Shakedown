@@ -407,7 +407,7 @@ class ProxyServer:
             try:
                 upstream_headers = {"Content-Type": "application/json"}
                 upstream_auth = "Bearer " + self.upstream_api_key
-                upstream_headers["Author" + "ization"] = upstream_auth
+                upstream_headers["Authorization"] = upstream_auth
                 if forwarded.get("stream") is True:
                     return await self._handle_stream(
                         run_id, ctx, client, forwarded, upstream_headers, reservation
