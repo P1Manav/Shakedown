@@ -159,6 +159,9 @@ def parse_text_tool_call(content: str, step: int) -> dict | None:
                     args = {}
             if not isinstance(args, dict):
                 args = {}
+            content = args.get("content")
+            if name == "write_file" and isinstance(content, str) and "\n" not in content:
+                args["content"] = content.replace("\\r\\n", "\n").replace("\\n", "\n")
             return {"id": f"textcall_{step}", "type": "function",
                     "function": {"name": name, "arguments": json.dumps(args)}}
     return None

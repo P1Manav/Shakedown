@@ -14,7 +14,7 @@ def test_demo_agent_prompt_uses_native_tool_calls():
 def test_text_tool_parser_handles_narrative_with_triple_quoted_file_content():
     response = r'''The tests failed; here is the complete replacement:
 ```json
-{"name": "write_file", "arguments": {"path": "module.py", "content": """\"\"\"module doc\"\"\"\nVALUE = 1\n""" }}
+{"name": "write_file", "arguments": {"path": "module.py", "content": """\"\"\"module doc\"\"\"\\nVALUE = 1\\n""" }}
 ```
 ```json
 {"name": "run_tests", "arguments": {}}
