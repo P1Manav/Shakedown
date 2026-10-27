@@ -1,0 +1,1357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Shakedown · demo-20261026-232912</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f6f2; --surface: #fff; --surface-2: #f0f3ee; --ink: #152019;
+      --muted: #68756c; --line: #dfe6df; --accent: #256d4c; --accent-soft: #e0f1e7;
+      --critical: #b33d3d; --critical-soft: #fbe8e5; --helpful: #18735d;
+      --helpful-soft: #dcf2e9; --warning: #9a681a; --warning-soft: #fbf0d6;
+      --shadow: 0 16px 45px rgba(18, 44, 30, .07);
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0b1110; --surface: #121b18; --surface-2: #192520; --ink: #edf4ee;
+      --muted: #a0aea4; --line: #293a31; --accent: #87d7a7; --accent-soft: #1d3a2b;
+      --critical: #ff938b; --critical-soft: #442522; --helpful: #8ed9b6;
+      --helpful-soft: #1d3a2f; --warning: #f0c777; --warning-soft: #40351f;
+      --shadow: 0 16px 45px rgba(0, 0, 0, .22);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #0b1110; --surface: #121b18; --surface-2: #192520; --ink: #edf4ee;
+        --muted: #a0aea4; --line: #293a31; --accent: #87d7a7; --accent-soft: #1d3a2b;
+        --critical: #ff938b; --critical-soft: #442522; --helpful: #8ed9b6;
+        --helpful-soft: #1d3a2f; --warning: #f0c777; --warning-soft: #40351f;
+        --shadow: 0 16px 45px rgba(0, 0, 0, .22);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background:
+        radial-gradient(ellipse at 12% 0%, rgba(76, 155, 107, .11), transparent 34rem),
+        var(--bg); color: var(--ink);
+      font: 14px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 30px 0 70px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 750; letter-spacing: -.03em; }
+    .mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+      background: var(--accent); color: #fff; font-size: 19px; }
+    .brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 550;
+      letter-spacing: .08em; text-transform: uppercase; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .run-id, .pill { border: 1px solid var(--line); border-radius: 999px; color: var(--muted);
+      padding: 6px 11px; font-size: 11px; }
+    button { border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px;
+      background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; font-size: 12px; }
+    .hero { display: grid; grid-template-columns: 1.25fr .75fr; gap: 18px; margin-top: 32px; }
+    .panel { border: 1px solid var(--line); background: var(--surface); border-radius: 18px;
+      box-shadow: var(--shadow); }
+    .hero-main { padding: 30px; position: relative; overflow: hidden; }
+    .hero-main:after { content: ""; position: absolute; right: -55px; top: -85px; width: 250px;
+      height: 250px; border: 1px solid var(--line); border-radius: 50%;
+      box-shadow: 0 0 0 28px var(--surface), 0 0 0 29px var(--line),
+                  0 0 0 58px var(--surface), 0 0 0 59px var(--line); opacity: .55; }
+    .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .13em;
+      font-size: 10px; font-weight: 800; }
+    h1 { margin: 10px 0 8px; font-size: clamp(32px, 5vw, 52px); line-height: 1.02;
+      letter-spacing: -.055em; max-width: 620px; }
+    .lead { color: var(--muted); max-width: 570px; margin: 0; }
+    .baseline-row { display: flex; align-items: end; gap: 18px; margin-top: 28px; position: relative; z-index: 1; }
+    .baseline-value { font-size: clamp(46px, 7vw, 72px); font-weight: 780; letter-spacing: -.07em;
+      line-height: .9; color: var(--accent); }
+    .baseline-meta { padding-bottom: 4px; color: var(--muted); }
+    .baseline-meta strong { display: block; color: var(--ink); font-size: 14px; }
+    .hero-side { display: flex; flex-direction: column; gap: 12px; padding: 18px; }
+    .mini-stat { display: flex; justify-content: space-between; align-items: center;
+      padding: 13px 14px; border-radius: 12px; background: var(--surface-2); }
+    .mini-stat span { color: var(--muted); font-size: 12px; }
+    .mini-stat strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+    .model-note { margin-top: auto; padding: 8px 4px 0; color: var(--muted); font-size: 11px; }
+    section { margin-top: 34px; }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 16px;
+      margin: 0 0 13px; }
+    h2 { margin: 0; font-size: 20px; letter-spacing: -.035em; }
+    .section-head p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: 10px; }
+    .legend span:before { content: ""; display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: currentColor; margin-right: 5px; }
+    .legend .lg-critical { color: var(--critical); } .legend .lg-clear { color: var(--helpful); }
+    .legend .lg-open { color: var(--warning); }
+    .heatmap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
+    .heat-cell { min-width: 0; border: 1px solid var(--line); background: var(--surface);
+      border-radius: 14px; padding: 14px; position: relative; overflow: hidden; }
+    .heat-cell:before { content: ""; position: absolute; inset: auto 0 0; height: 3px;
+      background: var(--meter-color, var(--warning)); }
+    .heat-cell.critical { --meter-color: var(--critical); }
+    .heat-cell.helpful { --meter-color: var(--helpful); }
+    .heat-cell.dead-weight { --meter-color: var(--accent); }
+    .heat-cell.inconclusive, .heat-cell.not-run { --meter-color: var(--warning); }
+    .cell-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .kind { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+    .verdict { color: var(--meter-color); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+    .cell-title { font-size: 13px; font-weight: 700; margin: 8px 0 9px; min-height: 38px; }
+    .rate-line { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
+    .track { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin: 6px 0 9px; }
+    .fill { height: 100%; background: var(--meter-color); border-radius: inherit; }
+    .cell-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+      border-top: 1px solid var(--line); padding-top: 9px; }
+    .cell-metrics span { color: var(--muted); font-size: 9px; display: block; }
+    .cell-metrics strong { display: block; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .cell-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; }
+    .empty { padding: 30px; text-align: center; color: var(--muted); grid-column: 1 / -1; }
+    .lower-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .content-card { padding: 19px; }
+    .timeline { display: flex; gap: 0; overflow-x: auto; padding: 16px 0 4px; }
+    .timeline-step { min-width: 150px; flex: 1; position: relative; padding: 0 12px 0 0; }
+    .timeline-step:before { content: ""; position: absolute; top: 9px; left: 17px; right: 0;
+      height: 1px; background: var(--line); }
+    .timeline-step:last-child:before { display: none; }
+    .dot { position: relative; width: 18px; height: 18px; border: 4px solid var(--accent-soft);
+      border-radius: 50%; background: var(--accent); z-index: 1; }
+    .tv { margin-top: 10px; font-weight: 750; font-size: 15px; }
+    .step-label { color: var(--muted); font-size: 10px; }
+    .action-split { color: var(--muted); font-size: 10px; margin-top: 7px; overflow-wrap: anywhere; }
+    .action-split b { color: var(--ink); font-weight: 600; }
+    .bars { display: grid; gap: 13px; margin-top: 12px; }
+    .bar-row { display: grid; grid-template-columns: 100px 1fr 34px; align-items: center; gap: 9px; }
+    .bar-label { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stack { display: flex; height: 10px; overflow: hidden; border-radius: 99px; background: var(--surface-2); }
+    .stack span { min-width: 2px; } .stack .loop { background: #e29a50; }
+    .stack .call_cap_hit { background: #bd4e4b; } .stack .malformed_tool_call { background: #9061c2; }
+    .stack .gave_up { background: #b5813e; } .stack .false_success { background: #dd5968; }
+    .stack .timeout { background: #6978c8; } .stack .other { background: #829087; }
+    .bar-value { text-align: right; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .taxonomy-legend { display: flex; flex-wrap: wrap; gap: 9px 13px; margin-top: 15px; color: var(--muted); font-size: 9px; }
+    .taxonomy-legend i { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--legend-color); margin-right: 4px; }
+    .fix-list { display: grid; gap: 10px; }
+    .fix-item { padding: 15px; background: var(--surface); border: 1px solid var(--line);
+      border-radius: 13px; }
+    .fix-title { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+    .rank { color: var(--accent); font-size: 10px; }
+    .fix-reason { color: var(--muted); font-size: 10px; margin: 4px 0 8px; }
+    .fix-copy { border-left: 2px solid var(--accent); padding-left: 10px; color: var(--muted); font-size: 11px; }
+    .method { padding: 15px 18px; color: var(--muted); font-size: 10px; }
+    .method strong { color: var(--ink); }
+    .foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px;
+      color: var(--muted); font-size: 10px; }
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; } .hero-side { display: grid; grid-template-columns: 1fr 1fr; }
+      .model-note { grid-column: 1 / -1; } .heatmap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .lower-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 520px) {
+      .shell { width: min(100% - 24px, 1180px); padding-top: 18px; }
+      .run-id { display: none; } .hero-main { padding: 22px; }
+      .heatmap { grid-template-columns: 1fr; } .hero-side { display: flex; }
+      .bar-row { grid-template-columns: 82px 1fr 26px; } .foot { flex-direction: column; }
+    }
+    @media print {
+      body { background: #fff; } .shell { width: 100%; padding: 0; }
+      .panel, .heat-cell, .fix-item { box-shadow: none; break-inside: avoid; }
+      button { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="mark">S</span><div>SHAKEDOWN<small>Agent sensitivity lab</small></div></div>
+      <div class="top-actions"><span class="run-id">demo-20261026-232912</span>
+        <button id="theme-toggle" type="button" aria-label="Toggle color theme">◐ Theme</button></div>
+    </header>
+
+    <section class="hero" aria-label="Experiment summary">
+      <div class="panel hero-main">
+        <div class="eyebrow">Reliability profile · 4 tasks</div>
+        <h1>What does your agent depend on?</h1>
+        <p class="lead">Controlled prompt and tool perturbations reveal where this agent is robust, fragile, or still uncertain.</p>
+        <div class="baseline-row">
+          <div class="baseline-value">42%</div>
+          <div class="baseline-meta"><strong>Baseline pass rate</strong>
+            5 of 12 runs · Wilson 95% CI
+            19–68%<br>
+            Unadjusted MDE at this sample size: 40.7 points
+          </div>
+        </div>
+      </div>
+      <aside class="panel hero-side" aria-label="Run metrics">
+        <div class="mini-stat"><span>Total runs</span><strong>252</strong></div>
+        <div class="mini-stat"><span>Invalid runs</span><strong>0</strong></div>
+        <div class="mini-stat"><span>Tampered runs</span><strong>0</strong></div>
+        <div class="mini-stat"><span>Model calls</span><strong>1181</strong></div>
+        <div class="mini-stat"><span>Tokens</span><strong>1,366,682</strong></div>
+        <div class="mini-stat"><span>Estimated spend</span><strong>$0.0000</strong></div>
+        <div class="model-note">Model: qwen2.5-coder:7b · success is the executable test exit code, never an LLM judge.</div>
+      </aside>
+    </section>
+
+    <section aria-labelledby="heatmap-title">
+      <div class="section-head">
+        <div><h2 id="heatmap-title">Sensitivity heatmap</h2>
+          <p>Success under each controlled perturbation. holm.</p></div>
+        <div class="legend"><span class="lg-critical">Critical</span><span class="lg-clear">No meaningful effect</span>
+          <span class="lg-open">Inconclusive</span></div>
+      </div>
+      <div class="heatmap">
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">remove identity</div>
+          <div class="rate-line"><span>1/12 passed</span><strong>8%</strong></div>
+          <div class="track" role="img" aria-label="8 percent passed">
+            <div class="fill" style="width: 8.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-33.3 pts</strong></div>
+            <div><span>Raw p</span><strong>0.153</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -85.4 to 51.0 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -33.3 pts,
+            raw p=0.155;
+            stratified 
+            Δ -33.3 pts,
+            raw p=0.153
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_03 0% (0/3); 
+            
+            bugfix_01 33% (1/3); 
+            
+            bugfix_04 0% (0/3)
+            </p>
+          
+          
+          <p class="cell-note">1 false claims / 12 runs
+            (8%); 11 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">shuffle identity</div>
+          <div class="rate-line"><span>4/12 passed</span><strong>33%</strong></div>
+          <div class="track" role="img" aria-label="33 percent passed">
+            <div class="fill" style="width: 33.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-8.3 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -66.9 to 59.4 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -8.3 pts,
+            raw p=1.000;
+            stratified 
+            Δ -8.3 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 67% (2/3); 
+            
+            bugfix_01 33% (1/3); 
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_04 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 8 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">remove workflow</div>
+          <div class="rate-line"><span>1/12 passed</span><strong>8%</strong></div>
+          <div class="track" role="img" aria-label="8 percent passed">
+            <div class="fill" style="width: 8.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-33.3 pts</strong></div>
+            <div><span>Raw p</span><strong>0.153</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -85.4 to 51.0 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -33.3 pts,
+            raw p=0.155;
+            stratified 
+            Δ -33.3 pts,
+            raw p=0.153
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 0% (0/3); 
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_01 0% (0/3); 
+            
+            bugfix_04 0% (0/3)
+            </p>
+          
+          
+          <p class="cell-note">2 false claims / 12 runs
+            (17%); 11 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">shuffle workflow</div>
+          <div class="rate-line"><span>5/12 passed</span><strong>42%</strong></div>
+          <div class="track" role="img" aria-label="42 percent passed">
+            <div class="fill" style="width: 41.7%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>+0.0 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -63.8 to 66.2 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ +0.0 pts,
+            raw p=1.000;
+            stratified 
+            Δ +0.0 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 33% (1/3); 
+            
+            bugfix_01 67% (2/3); 
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_04 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 7 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">remove verification</div>
+          <div class="rate-line"><span>4/12 passed</span><strong>33%</strong></div>
+          <div class="track" role="img" aria-label="33 percent passed">
+            <div class="fill" style="width: 33.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-8.3 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -69.0 to 62.0 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -8.3 pts,
+            raw p=1.000;
+            stratified 
+            Δ -8.3 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_03 33% (1/3); 
+            
+            bugfix_01 67% (2/3); 
+            
+            bugfix_04 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 8 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">shuffle verification</div>
+          <div class="rate-line"><span>5/12 passed</span><strong>42%</strong></div>
+          <div class="track" role="img" aria-label="42 percent passed">
+            <div class="fill" style="width: 41.7%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>+0.0 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -63.8 to 66.2 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ +0.0 pts,
+            raw p=1.000;
+            stratified 
+            Δ +0.0 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_01 67% (2/3); 
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_03 33% (1/3); 
+            
+            bugfix_04 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 7 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">remove tool_read_file</div>
+          <div class="rate-line"><span>4/12 passed</span><strong>33%</strong></div>
+          <div class="track" role="img" aria-label="33 percent passed">
+            <div class="fill" style="width: 33.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-8.3 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -68.4 to 56.6 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -8.3 pts,
+            raw p=1.000;
+            stratified 
+            Δ -8.3 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_03 100% (3/3); 
+            
+            bugfix_01 33% (1/3); 
+            
+            bugfix_04 0% (0/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 8 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">shuffle tool_read_file</div>
+          <div class="rate-line"><span>5/12 passed</span><strong>42%</strong></div>
+          <div class="track" role="img" aria-label="42 percent passed">
+            <div class="fill" style="width: 41.7%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>+0.0 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -63.8 to 66.2 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ +0.0 pts,
+            raw p=1.000;
+            stratified 
+            Δ +0.0 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_01 67% (2/3); 
+            
+            bugfix_03 33% (1/3); 
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_04 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 7 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">remove tool_write_file</div>
+          <div class="rate-line"><span>5/12 passed</span><strong>42%</strong></div>
+          <div class="track" role="img" aria-label="42 percent passed">
+            <div class="fill" style="width: 41.7%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>+0.0 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -62.5 to 62.5 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ +0.0 pts,
+            raw p=1.000;
+            stratified 
+            Δ +0.0 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_03 67% (2/3); 
+            
+            bugfix_01 33% (1/3); 
+            
+            bugfix_04 67% (2/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 7 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">shuffle tool_write_file</div>
+          <div class="rate-line"><span>3/12 passed</span><strong>25%</strong></div>
+          <div class="track" role="img" aria-label="25 percent passed">
+            <div class="fill" style="width: 25.0%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-16.7 pts</strong></div>
+            <div><span>Raw p</span><strong>0.673</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -73.3 to 58.3 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -16.7 pts,
+            raw p=0.667;
+            stratified 
+            Δ -16.7 pts,
+            raw p=0.673
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_01 33% (1/3); 
+            
+            bugfix_03 33% (1/3); 
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_04 0% (0/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 9 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">remove tool_run_tests</div>
+          <div class="rate-line"><span>3/12 passed</span><strong>25%</strong></div>
+          <div class="track" role="img" aria-label="25 percent passed">
+            <div class="fill" style="width: 25.0%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-16.7 pts</strong></div>
+            <div><span>Raw p</span><strong>0.673</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -73.3 to 58.3 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -16.7 pts,
+            raw p=0.667;
+            stratified 
+            Δ -16.7 pts,
+            raw p=0.673
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_01 33% (1/3); 
+            
+            bugfix_04 0% (0/3); 
+            
+            bugfix_03 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">1 false claims / 12 runs
+            (8%); 9 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">shuffle tool_run_tests</div>
+          <div class="rate-line"><span>4/12 passed</span><strong>33%</strong></div>
+          <div class="track" role="img" aria-label="33 percent passed">
+            <div class="fill" style="width: 33.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-8.3 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -70.2 to 62.7 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -8.3 pts,
+            raw p=1.000;
+            stratified 
+            Δ -8.3 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 33% (1/3); 
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_01 67% (2/3); 
+            
+            bugfix_04 0% (0/3)
+            </p>
+          
+          
+          <p class="cell-note">1 false claims / 12 runs
+            (8%); 8 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">remove tool_list_dir</div>
+          <div class="rate-line"><span>4/12 passed</span><strong>33%</strong></div>
+          <div class="track" role="img" aria-label="33 percent passed">
+            <div class="fill" style="width: 33.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-8.3 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -69.4 to 61.9 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -8.3 pts,
+            raw p=1.000;
+            stratified 
+            Δ -8.3 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_01 33% (1/3); 
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_03 0% (0/3); 
+            
+            bugfix_04 67% (2/3)
+            </p>
+          
+          
+          <p class="cell-note">1 false claims / 12 runs
+            (8%); 8 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="ablation">
+          <div class="cell-top"><span class="kind">ablation</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">shuffle tool_list_dir</div>
+          <div class="rate-line"><span>5/12 passed</span><strong>42%</strong></div>
+          <div class="track" role="img" aria-label="42 percent passed">
+            <div class="fill" style="width: 41.7%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>+0.0 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (ablation)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>58.2 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 58 pts · within-family Δ CI -65.0 to 64.6 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ +0.0 pts,
+            raw p=1.000;
+            stratified 
+            Δ +0.0 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_01 67% (2/3); 
+            
+            bugfix_03 67% (2/3); 
+            
+            bugfix_04 0% (0/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 7 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="chaos">
+          <div class="cell-top"><span class="kind">chaos</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">truncate_output → run_tests</div>
+          <div class="rate-line"><span>5/12 passed</span><strong>42%</strong></div>
+          <div class="track" role="img" aria-label="42 percent passed">
+            <div class="fill" style="width: 41.7%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>+0.0 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (chaos)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>56.5 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 57 pts · within-family Δ CI -62.3 to 64.7 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ +0.0 pts,
+            raw p=1.000;
+            stratified 
+            Δ +0.0 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 33% (1/3); 
+            
+            bugfix_01 67% (2/3); 
+            
+            bugfix_02 33% (1/3); 
+            
+            bugfix_04 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">1 false claims / 12 runs
+            (8%); 7 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="chaos">
+          <div class="cell-top"><span class="kind">chaos</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">empty_result → read_file</div>
+          <div class="rate-line"><span>0/12 passed</span><strong>0%</strong></div>
+          <div class="track" role="img" aria-label="0 percent passed">
+            <div class="fill" style="width: 0.0%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-41.7 pts</strong></div>
+            <div><span>Raw p</span><strong>0.051</strong></div>
+            <div><span>Adjusted p (chaos)</span><strong>0.306</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>56.5 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 57 pts · within-family Δ CI -89.3 to 43.7 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -41.7 pts,
+            raw p=0.037;
+            stratified 
+            Δ -41.7 pts,
+            raw p=0.051
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 0% (0/3); 
+            
+            bugfix_01 0% (0/3); 
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_04 0% (0/3)
+            </p>
+          
+          
+          <p class="cell-note">5 false claims / 12 runs
+            (42%); 12 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="chaos">
+          <div class="cell-top"><span class="kind">chaos</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">malformed_json → run_tests</div>
+          <div class="rate-line"><span>4/12 passed</span><strong>33%</strong></div>
+          <div class="track" role="img" aria-label="33 percent passed">
+            <div class="fill" style="width: 33.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-8.3 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (chaos)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>56.5 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 57 pts · within-family Δ CI -67.5 to 60.1 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -8.3 pts,
+            raw p=1.000;
+            stratified 
+            Δ -8.3 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 33% (1/3); 
+            
+            bugfix_01 67% (2/3); 
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_04 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">3 false claims / 12 runs
+            (25%); 8 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="chaos">
+          <div class="cell-top"><span class="kind">chaos</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">error_once → write_file</div>
+          <div class="rate-line"><span>4/12 passed</span><strong>33%</strong></div>
+          <div class="track" role="img" aria-label="33 percent passed">
+            <div class="fill" style="width: 33.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-8.3 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (chaos)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>56.5 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 57 pts · within-family Δ CI -70.5 to 63.1 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -8.3 pts,
+            raw p=1.000;
+            stratified 
+            Δ -8.3 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 0% (0/3); 
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_01 100% (3/3); 
+            
+            bugfix_04 33% (1/3)
+            </p>
+          
+          
+          <p class="cell-note">1 false claims / 12 runs
+            (8%); 8 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="chaos">
+          <div class="cell-top"><span class="kind">chaos</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">stale_file → read_file</div>
+          <div class="rate-line"><span>5/12 passed</span><strong>42%</strong></div>
+          <div class="track" role="img" aria-label="42 percent passed">
+            <div class="fill" style="width: 41.7%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>+0.0 pts</strong></div>
+            <div><span>Raw p</span><strong>1.000</strong></div>
+            <div><span>Adjusted p (chaos)</span><strong>1.000</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>56.5 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 57 pts · within-family Δ CI -65.9 to 65.9 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ +0.0 pts,
+            raw p=1.000;
+            stratified 
+            Δ +0.0 pts,
+            raw p=1.000
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_03 0% (0/3); 
+            
+            bugfix_02 67% (2/3); 
+            
+            bugfix_04 33% (1/3); 
+            
+            bugfix_01 67% (2/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 7 failures classified</p>
+        </article>
+        
+        <article class="heat-cell inconclusive" data-kind="chaos">
+          <div class="cell-top"><span class="kind">chaos</span><span class="verdict">inconclusive</span></div>
+          <div class="cell-title">renamed_path → read_file</div>
+          <div class="rate-line"><span>1/12 passed</span><strong>8%</strong></div>
+          <div class="track" role="img" aria-label="8 percent passed">
+            <div class="fill" style="width: 8.3%"></div></div>
+          <div class="cell-metrics">
+            <div><span>Δ pass rate</span><strong>-33.3 pts</strong></div>
+            <div><span>Raw p</span><strong>0.171</strong></div>
+            <div><span>Adjusted p (chaos)</span><strong>0.855</strong></div>
+            <div><span>Family-adjusted MDE</span><strong>56.5 pts</strong></div>
+            <div><span>Exposure</span><strong>n/a</strong></div>
+          </div>
+          <p class="cell-note">not significant; MDE 57 pts · within-family Δ CI -82.9 to 47.6 pts</p>
+          <p class="cell-note">Label driven by stratified comparison:
+            pooled Δ -33.3 pts,
+            raw p=0.155;
+            stratified 
+            Δ -33.3 pts,
+            raw p=0.171
+            across 4 task strata.</p>
+          
+          <p class="cell-note">Per-task valid pass rates:
+            
+            bugfix_02 0% (0/3); 
+            
+            bugfix_01 0% (0/3); 
+            
+            bugfix_04 33% (1/3); 
+            
+            bugfix_03 0% (0/3)
+            </p>
+          
+          
+          <p class="cell-note">0 false claims / 12 runs
+            (0%); 11 failures classified</p>
+        </article>
+        
+      </div>
+    </section>
+
+    <section class="lower-grid">
+      <article class="panel content-card">
+        <div class="section-head"><div><h2>First divergence</h2>
+          <p>Exploratory comparison of normalized tool calls; not a confirmatory result.</p></div></div>
+        
+        <div class="timeline">
+          
+          <div class="timeline-step">
+            <div class="dot" title="Total variation distance 0.0"></div>
+            <div class="tv">0.00</div><div class="step-label">Step 1 · TV distance</div>
+            <div class="action-split"><b>Pass</b> list_dir:.<br><b>Fail</b> list_dir:.</div>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="dot" title="Total variation distance 0.514"></div>
+            <div class="tv">0.51</div><div class="step-label">Step 2 · TV distance</div>
+            <div class="action-split"><b>Pass</b> read_file:slugify.py<br><b>Fail</b> read_file:cart.py</div>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="dot" title="Total variation distance 0.667"></div>
+            <div class="tv">0.67</div><div class="step-label">Step 3 · TV distance</div>
+            <div class="action-split"><b>Pass</b> run_tests:-<br><b>Fail</b> write_file:cart.py</div>
+          </div>
+          
+          <div class="timeline-step">
+            <div class="dot" title="Total variation distance 0.4"></div>
+            <div class="tv">0.40</div><div class="step-label">Step 4 · TV distance</div>
+            <div class="action-split"><b>Pass</b> run_tests:-<br><b>Fail</b> run_tests:-</div>
+          </div>
+          
+        </div>
+        
+        
+        <p class="cell-note">Exploratory within-task permutation test of maximum TV across eligible steps:
+          p=0.5980.</p>
+        
+      </article>
+
+      <article class="panel content-card">
+        <div class="section-head"><div><h2>Failure taxonomy</h2>
+          <p>Rule-based causes among failed runs · no model judge.</p></div></div>
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="remove identity">remove identity</span>
+            <div class="stack" role="img" aria-label="11 classified failures">
+              
+              <span class="false_success" style="width: 9.1%"
+                title="false-success: 1"></span>
+              
+              <span class="other" style="width: 90.9%"
+                title="other: 10"></span>
+              
+            </div><span class="bar-value">11</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="shuffle identity">shuffle identity</span>
+            <div class="stack" role="img" aria-label="8 classified failures">
+              
+              <span class="other" style="width: 100.0%"
+                title="other: 8"></span>
+              
+            </div><span class="bar-value">8</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="remove workflow">remove workflow</span>
+            <div class="stack" role="img" aria-label="11 classified failures">
+              
+              <span class="false_success" style="width: 18.2%"
+                title="false-success: 2"></span>
+              
+              <span class="other" style="width: 81.8%"
+                title="other: 9"></span>
+              
+            </div><span class="bar-value">11</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="shuffle workflow">shuffle workflow</span>
+            <div class="stack" role="img" aria-label="7 classified failures">
+              
+              <span class="other" style="width: 100.0%"
+                title="other: 7"></span>
+              
+            </div><span class="bar-value">7</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="remove verification">remove verification</span>
+            <div class="stack" role="img" aria-label="8 classified failures">
+              
+              <span class="gave_up" style="width: 12.5%"
+                title="gave-up: 1"></span>
+              
+              <span class="other" style="width: 87.5%"
+                title="other: 7"></span>
+              
+            </div><span class="bar-value">8</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="shuffle verification">shuffle verification</span>
+            <div class="stack" role="img" aria-label="7 classified failures">
+              
+              <span class="other" style="width: 100.0%"
+                title="other: 7"></span>
+              
+            </div><span class="bar-value">7</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="remove tool_read_file">remove tool_read_file</span>
+            <div class="stack" role="img" aria-label="8 classified failures">
+              
+              <span class="other" style="width: 100.0%"
+                title="other: 8"></span>
+              
+            </div><span class="bar-value">8</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="shuffle tool_read_file">shuffle tool_read_file</span>
+            <div class="stack" role="img" aria-label="7 classified failures">
+              
+              <span class="other" style="width: 100.0%"
+                title="other: 7"></span>
+              
+            </div><span class="bar-value">7</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="remove tool_write_file">remove tool_write_file</span>
+            <div class="stack" role="img" aria-label="7 classified failures">
+              
+              <span class="other" style="width: 100.0%"
+                title="other: 7"></span>
+              
+            </div><span class="bar-value">7</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="shuffle tool_write_file">shuffle tool_write_file</span>
+            <div class="stack" role="img" aria-label="9 classified failures">
+              
+              <span class="other" style="width: 100.0%"
+                title="other: 9"></span>
+              
+            </div><span class="bar-value">9</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="remove tool_run_tests">remove tool_run_tests</span>
+            <div class="stack" role="img" aria-label="9 classified failures">
+              
+              <span class="false_success" style="width: 11.1%"
+                title="false-success: 1"></span>
+              
+              <span class="other" style="width: 88.9%"
+                title="other: 8"></span>
+              
+            </div><span class="bar-value">9</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="shuffle tool_run_tests">shuffle tool_run_tests</span>
+            <div class="stack" role="img" aria-label="8 classified failures">
+              
+              <span class="gave_up" style="width: 12.5%"
+                title="gave-up: 1"></span>
+              
+              <span class="false_success" style="width: 12.5%"
+                title="false-success: 1"></span>
+              
+              <span class="other" style="width: 75.0%"
+                title="other: 6"></span>
+              
+            </div><span class="bar-value">8</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="remove tool_list_dir">remove tool_list_dir</span>
+            <div class="stack" role="img" aria-label="8 classified failures">
+              
+              <span class="loop" style="width: 12.5%"
+                title="loop: 1"></span>
+              
+              <span class="false_success" style="width: 12.5%"
+                title="false-success: 1"></span>
+              
+              <span class="other" style="width: 75.0%"
+                title="other: 6"></span>
+              
+            </div><span class="bar-value">8</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="shuffle tool_list_dir">shuffle tool_list_dir</span>
+            <div class="stack" role="img" aria-label="7 classified failures">
+              
+              <span class="loop" style="width: 14.3%"
+                title="loop: 1"></span>
+              
+              <span class="other" style="width: 85.7%"
+                title="other: 6"></span>
+              
+            </div><span class="bar-value">7</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="truncate_output → run_tests">truncate_output → run_tests</span>
+            <div class="stack" role="img" aria-label="7 classified failures">
+              
+              <span class="false_success" style="width: 14.3%"
+                title="false-success: 1"></span>
+              
+              <span class="other" style="width: 85.7%"
+                title="other: 6"></span>
+              
+            </div><span class="bar-value">7</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="empty_result → read_file">empty_result → read_file</span>
+            <div class="stack" role="img" aria-label="12 classified failures">
+              
+              <span class="false_success" style="width: 41.7%"
+                title="false-success: 5"></span>
+              
+              <span class="other" style="width: 58.3%"
+                title="other: 7"></span>
+              
+            </div><span class="bar-value">12</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="malformed_json → run_tests">malformed_json → run_tests</span>
+            <div class="stack" role="img" aria-label="8 classified failures">
+              
+              <span class="false_success" style="width: 37.5%"
+                title="false-success: 3"></span>
+              
+              <span class="other" style="width: 62.5%"
+                title="other: 5"></span>
+              
+            </div><span class="bar-value">8</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="error_once → write_file">error_once → write_file</span>
+            <div class="stack" role="img" aria-label="8 classified failures">
+              
+              <span class="false_success" style="width: 12.5%"
+                title="false-success: 1"></span>
+              
+              <span class="other" style="width: 87.5%"
+                title="other: 7"></span>
+              
+            </div><span class="bar-value">8</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="stale_file → read_file">stale_file → read_file</span>
+            <div class="stack" role="img" aria-label="7 classified failures">
+              
+              <span class="other" style="width: 100.0%"
+                title="other: 7"></span>
+              
+            </div><span class="bar-value">7</span>
+          </div>
+        </div>
+        
+        
+        
+        <div class="bars">
+          <div class="bar-row"><span class="bar-label" title="renamed_path → read_file">renamed_path → read_file</span>
+            <div class="stack" role="img" aria-label="11 classified failures">
+              
+              <span class="gave_up" style="width: 9.1%"
+                title="gave-up: 1"></span>
+              
+              <span class="other" style="width: 90.9%"
+                title="other: 10"></span>
+              
+            </div><span class="bar-value">11</span>
+          </div>
+        </div>
+        
+        
+        <div class="taxonomy-legend">
+          <span><i style="--legend-color:#e29a50"></i>Loop</span><span><i style="--legend-color:#bd4e4b"></i>Call cap</span>
+          <span><i style="--legend-color:#9061c2"></i>Malformed call</span><span><i style="--legend-color:#b5813e"></i>Gave up</span>
+          <span><i style="--legend-color:#dd5968"></i>False success</span><span><i style="--legend-color:#6978c8"></i>Timeout</span>
+          <span><i style="--legend-color:#829087"></i>Other</span>
+        </div>
+      </article>
+    </section>
+
+    
+
+    <section aria-labelledby="fix-title">
+      <div class="section-head"><div><h2 id="fix-title">Fix first</h2>
+        <p>Ranked only from supported signals; suggested wording is ready to test.</p></div></div>
+      <div class="fix-list">
+        
+        <div class="panel empty">No statistically supported fix-first candidate yet. Keep sampling ambiguous cells.</div>
+        
+      </div>
+    </section>
+
+    <section class="panel method">
+      <strong>Method</strong> · Wilson score interval (95%) · two-proportion z-test, Fisher exact when counts are small · Newcombe hybrid score interval with Bonferroni adjustment within cell-kind families.
+      Holm-Bonferroni within each cell-kind family:
+      
+      ablation (14 cells, 99.88% per-look CI confidence); 
+      
+      chaos (6 cells, 99.72% per-look CI confidence)
+      .
+      “Inconclusive” means the interval still includes a meaningful effect (±25 points);
+      it does not mean “no effect.” Cell MDE assumes 80% power at within-family, sequentially spent α; baseline MDE is unadjusted.
+    </section>
+    <footer class="foot"><span>Shakedown · Sensitivity, not certainty.</span>
+      <span>Generated 2026-10-26T18:24:55+00:00 · 25.6 min elapsed</span></footer>
+  </main>
+  <script>
+    window.SHAKEDOWN = {"baseline": {"claims": {"claim_rate": 0.4166666666666667, "claims": 5, "false_claim_rate": 0.08333333333333333, "false_claim_share_of_failures": 0.14285714285714285, "false_claims": 1, "n": 12}, "cost": {"calls_per_run": 4.83, "cost_per_success": 14195.2, "cost_ratio": null, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 17.28, "n": 12, "steps_per_run": 3.83, "tokens_per_run": 5914.7, "usd_per_run": 0.0, "usd_total": 0.0}, "invalid_runs": 0, "k": 5, "mde_at_n": 40.7, "n": 12, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_03": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.4166666666666667, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 1, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 6, "tampering": 0, "timeout": 0}, "failed": 7, "other_share": 0.8571428571428571, "total": 12}, "wilson": [0.19326031365875668, 0.6804886874504503], "wilson_text": "41.7% [19.3, 68.0]"}, "cells": [{"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-85.4, 51.0], "claims": {"claim_rate": 0.16666666666666666, "claims": 2, "false_claim_rate": 0.08333333333333333, "false_claim_share_of_failures": 0.09090909090909091, "false_claims": 1, "n": 12}, "comparison": {"ci_high": 0.2206196480586623, "ci_low": -0.7189832708486719, "delta": -0.33333333333333337, "k_ctrl": 5, "k_treat": 1, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.15495259888852567, "z": null}, "cost": {"calls_per_run": 5.08, "cost_per_success": 70594.0, "cost_ratio": 4.97, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 10.77, "n": 12, "steps_per_run": 4.08, "tokens_per_run": 5882.8, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -33.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:remove:identity", "invalid_runs": 0, "k": 1, "kind": "ablation", "label": "remove identity", "label_comparison": {"ci_high": 0.5102735572318681, "ci_low": -0.8536903410680244, "delta": -0.3333333333333333, "k_ctrl": 5, "k_treat": 1, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.15266138035243018, "z": -1.4301938838683885}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 0.15266138035243018, "p_raw_pooled": 0.15495259888852567, "params": {"chunk": "identity", "mode": "remove"}, "per_task": {"bugfix_01": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_04": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}}, "rate": 0.08333333333333333, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.5102735572318681, "ci_low": -0.8536903410680244, "delta": -0.3333333333333333, "k_ctrl": 5, "k_treat": 1, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.15266138035243018, "z": -1.4301938838683885}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 1, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 10, "tampering": 0, "timeout": 0}, "failed": 11, "other_share": 0.9090909090909091, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-66.9, 59.4], "claims": {"claim_rate": 0.3333333333333333, "claims": 4, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4241034978538314, "ci_low": -0.5384611751648707, "delta": -0.08333333333333337, "k_ctrl": 5, "k_treat": 4, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 0.9999999999999999, "z": null}, "cost": {"calls_per_run": 4.42, "cost_per_success": 15031.0, "cost_ratio": 1.06, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 14.33, "n": 12, "steps_per_run": 3.42, "tokens_per_run": 5010.3, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -8.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:shuffle:identity", "invalid_runs": 0, "k": 4, "kind": "ablation", "label": "shuffle identity", "label_comparison": {"ci_high": 0.5939673394756679, "ci_low": -0.6689621893576438, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 0.9999999999999999, "params": {"chunk": "identity", "mode": "shuffle"}, "per_task": {"bugfix_01": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.3333333333333333, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.5939673394756679, "ci_low": -0.6689621893576438, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 8, "tampering": 0, "timeout": 0}, "failed": 8, "other_share": 1.0, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-85.4, 51.0], "claims": {"claim_rate": 0.25, "claims": 3, "false_claim_rate": 0.16666666666666666, "false_claim_share_of_failures": 0.18181818181818182, "false_claims": 2, "n": 12}, "comparison": {"ci_high": 0.2206196480586623, "ci_low": -0.7189832708486719, "delta": -0.33333333333333337, "k_ctrl": 5, "k_treat": 1, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.15495259888852567, "z": null}, "cost": {"calls_per_run": 3.5, "cost_per_success": 37370.0, "cost_ratio": 2.63, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 11.7, "n": 12, "steps_per_run": 2.25, "tokens_per_run": 3114.2, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -33.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:remove:workflow", "invalid_runs": 0, "k": 1, "kind": "ablation", "label": "remove workflow", "label_comparison": {"ci_high": 0.5102735572318681, "ci_low": -0.8536903410680244, "delta": -0.3333333333333333, "k_ctrl": 5, "k_treat": 1, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.15266138035243018, "z": -1.4301938838683885}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 0.15266138035243018, "p_raw_pooled": 0.15495259888852567, "params": {"chunk": "workflow", "mode": "remove"}, "per_task": {"bugfix_01": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_04": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}}, "rate": 0.08333333333333333, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.5102735572318681, "ci_low": -0.8536903410680244, "delta": -0.3333333333333333, "k_ctrl": 5, "k_treat": 1, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.15266138035243018, "z": -1.4301938838683885}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 2, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 9, "tampering": 0, "timeout": 0}, "failed": 11, "other_share": 0.8181818181818182, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-63.8, 66.2], "claims": {"claim_rate": 0.25, "claims": 3, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4826621223223023, "ci_low": -0.4826621223223023, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": null}, "cost": {"calls_per_run": 4.67, "cost_per_success": 13131.8, "cost_ratio": 0.93, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 15.46, "n": 12, "steps_per_run": 3.67, "tokens_per_run": 5471.6, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": 0.0, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:shuffle:workflow", "invalid_runs": 0, "k": 5, "kind": "ablation", "label": "shuffle workflow", "label_comparison": {"ci_high": 0.6624022285568437, "ci_low": -0.6384017329808945, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 1.0, "params": {"chunk": "workflow", "mode": "shuffle"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.4166666666666667, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6624022285568437, "ci_low": -0.6384017329808945, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 7, "tampering": 0, "timeout": 0}, "failed": 7, "other_share": 1.0, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-69.0, 62.0], "claims": {"claim_rate": 0.16666666666666666, "claims": 2, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4241034978538314, "ci_low": -0.5384611751648707, "delta": -0.08333333333333337, "k_ctrl": 5, "k_treat": 4, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 0.9999999999999999, "z": null}, "cost": {"calls_per_run": 4.58, "cost_per_success": 15383.5, "cost_ratio": 1.08, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 15.99, "n": 12, "steps_per_run": 3.33, "tokens_per_run": 5127.8, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -8.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:remove:verification", "invalid_runs": 0, "k": 4, "kind": "ablation", "label": "remove verification", "label_comparison": {"ci_high": 0.6196307266948369, "ci_low": -0.6900619697331675, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 0.9999999999999999, "params": {"chunk": "verification", "mode": "remove"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.3333333333333333, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6196307266948369, "ci_low": -0.6900619697331675, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 1, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 7, "tampering": 0, "timeout": 0}, "failed": 8, "other_share": 0.875, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-63.8, 66.2], "claims": {"claim_rate": 0.3333333333333333, "claims": 4, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4826621223223023, "ci_low": -0.4826621223223023, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": null}, "cost": {"calls_per_run": 5.0, "cost_per_success": 14751.8, "cost_ratio": 1.04, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 17.65, "n": 12, "steps_per_run": 4.0, "tokens_per_run": 6146.6, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": 0.0, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:shuffle:verification", "invalid_runs": 0, "k": 5, "kind": "ablation", "label": "shuffle verification", "label_comparison": {"ci_high": 0.6624022285568437, "ci_low": -0.6384017329808945, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 1.0, "params": {"chunk": "verification", "mode": "shuffle"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.4166666666666667, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6624022285568437, "ci_low": -0.6384017329808945, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 7, "tampering": 0, "timeout": 0}, "failed": 7, "other_share": 1.0, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-68.4, 56.6], "claims": {"claim_rate": 0.16666666666666666, "claims": 2, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4241034978538314, "ci_low": -0.5384611751648707, "delta": -0.08333333333333337, "k_ctrl": 5, "k_treat": 4, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 0.9999999999999999, "z": null}, "cost": {"calls_per_run": 4.75, "cost_per_success": 17438.75, "cost_ratio": 1.23, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 19.38, "n": 12, "steps_per_run": 3.75, "tokens_per_run": 5812.9, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -8.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:remove:tool_read_file", "invalid_runs": 0, "k": 4, "kind": "ablation", "label": "remove tool_read_file", "label_comparison": {"ci_high": 0.5658082673554312, "ci_low": -0.6842405015456597, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 0.9999999999999999, "params": {"chunk": "tool_read_file", "mode": "remove"}, "per_task": {"bugfix_01": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 3, "n": 3, "rate": 1.0, "wilson": [0.43850296824495455, 1.0]}, "bugfix_04": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}}, "rate": 0.3333333333333333, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.5658082673554312, "ci_low": -0.6842405015456597, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 8, "tampering": 0, "timeout": 0}, "failed": 8, "other_share": 1.0, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-63.8, 66.2], "claims": {"claim_rate": 0.3333333333333333, "claims": 4, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4826621223223023, "ci_low": -0.4826621223223023, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": null}, "cost": {"calls_per_run": 4.42, "cost_per_success": 12012.2, "cost_ratio": 0.85, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 14.03, "n": 12, "steps_per_run": 3.42, "tokens_per_run": 5005.1, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": 0.0, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:shuffle:tool_read_file", "invalid_runs": 0, "k": 5, "kind": "ablation", "label": "shuffle tool_read_file", "label_comparison": {"ci_high": 0.6624022285568437, "ci_low": -0.6384017329808945, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 1.0, "params": {"chunk": "tool_read_file", "mode": "shuffle"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.4166666666666667, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6624022285568437, "ci_low": -0.6384017329808945, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 7, "tampering": 0, "timeout": 0}, "failed": 7, "other_share": 1.0, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-62.5, 62.5], "claims": {"claim_rate": 0.25, "claims": 3, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4826621223223023, "ci_low": -0.4826621223223023, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": null}, "cost": {"calls_per_run": 4.33, "cost_per_success": 11440.6, "cost_ratio": 0.81, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 13.32, "n": 12, "steps_per_run": 3.33, "tokens_per_run": 4766.9, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": 0.0, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:remove:tool_write_file", "invalid_runs": 0, "k": 5, "kind": "ablation", "label": "remove tool_write_file", "label_comparison": {"ci_high": 0.6247872320972871, "ci_low": -0.6247872320972871, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 1.0, "params": {"chunk": "tool_write_file", "mode": "remove"}, "per_task": {"bugfix_01": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_04": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}}, "rate": 0.4166666666666667, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6247872320972871, "ci_low": -0.6247872320972871, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 7, "tampering": 0, "timeout": 0}, "failed": 7, "other_share": 1.0, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-73.3, 58.3], "claims": {"claim_rate": 0.25, "claims": 3, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.3616196564146669, "ci_low": -0.5949116743172544, "delta": -0.16666666666666669, "k_ctrl": 5, "k_treat": 3, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.25, "p_value": 0.6668461434917217, "z": null}, "cost": {"calls_per_run": 5.0, "cost_per_success": 24676.67, "cost_ratio": 1.74, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 18.5, "n": 12, "steps_per_run": 4.0, "tokens_per_run": 6169.2, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -16.7, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:shuffle:tool_write_file", "invalid_runs": 0, "k": 3, "kind": "ablation", "label": "shuffle tool_write_file", "label_comparison": {"ci_high": 0.5832004851712663, "ci_low": -0.7331901849352181, "delta": -0.16666666666666666, "k_ctrl": 5, "k_treat": 3, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.25, "p_value": 0.6726038174415166, "z": -0.4225771273642583}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 0.6726038174415166, "p_raw_pooled": 0.6668461434917217, "params": {"chunk": "tool_write_file", "mode": "shuffle"}, "per_task": {"bugfix_01": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}}, "rate": 0.25, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.5832004851712663, "ci_low": -0.7331901849352181, "delta": -0.16666666666666666, "k_ctrl": 5, "k_treat": 3, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.25, "p_value": 0.6726038174415166, "z": -0.4225771273642583}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 9, "tampering": 0, "timeout": 0}, "failed": 9, "other_share": 1.0, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-73.3, 58.3], "claims": {"claim_rate": 0.25, "claims": 3, "false_claim_rate": 0.08333333333333333, "false_claim_share_of_failures": 0.1111111111111111, "false_claims": 1, "n": 12}, "comparison": {"ci_high": 0.3616196564146669, "ci_low": -0.5949116743172544, "delta": -0.16666666666666669, "k_ctrl": 5, "k_treat": 3, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.25, "p_value": 0.6668461434917217, "z": null}, "cost": {"calls_per_run": 4.75, "cost_per_success": 21603.33, "cost_ratio": 1.52, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 16.04, "n": 12, "steps_per_run": 3.75, "tokens_per_run": 5400.8, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -16.7, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:remove:tool_run_tests", "invalid_runs": 0, "k": 3, "kind": "ablation", "label": "remove tool_run_tests", "label_comparison": {"ci_high": 0.5832004851712663, "ci_low": -0.7331901849352181, "delta": -0.16666666666666666, "k_ctrl": 5, "k_treat": 3, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.25, "p_value": 0.6726038174415166, "z": -0.4225771273642583}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 0.6726038174415166, "p_raw_pooled": 0.6668461434917217, "params": {"chunk": "tool_run_tests", "mode": "remove"}, "per_task": {"bugfix_01": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}}, "rate": 0.25, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.5832004851712663, "ci_low": -0.7331901849352181, "delta": -0.16666666666666666, "k_ctrl": 5, "k_treat": 3, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.25, "p_value": 0.6726038174415166, "z": -0.4225771273642583}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 1, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 8, "tampering": 0, "timeout": 0}, "failed": 9, "other_share": 0.8888888888888888, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-70.2, 62.7], "claims": {"claim_rate": 0.4166666666666667, "claims": 5, "false_claim_rate": 0.08333333333333333, "false_claim_share_of_failures": 0.125, "false_claims": 1, "n": 12}, "comparison": {"ci_high": 0.4241034978538314, "ci_low": -0.5384611751648707, "delta": -0.08333333333333337, "k_ctrl": 5, "k_treat": 4, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 0.9999999999999999, "z": null}, "cost": {"calls_per_run": 5.0, "cost_per_success": 19621.75, "cost_ratio": 1.38, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 14.2, "n": 12, "steps_per_run": 4.0, "tokens_per_run": 6540.6, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -8.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:shuffle:tool_run_tests", "invalid_runs": 0, "k": 4, "kind": "ablation", "label": "shuffle tool_run_tests", "label_comparison": {"ci_high": 0.627375442431623, "ci_low": -0.7023702923135988, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 0.9999999999999999, "params": {"chunk": "tool_run_tests", "mode": "shuffle"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}}, "rate": 0.3333333333333333, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.627375442431623, "ci_low": -0.7023702923135988, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 1, "gave-up": 1, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 6, "tampering": 0, "timeout": 0}, "failed": 8, "other_share": 0.75, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-69.4, 61.9], "claims": {"claim_rate": 0.3333333333333333, "claims": 4, "false_claim_rate": 0.08333333333333333, "false_claim_share_of_failures": 0.125, "false_claims": 1, "n": 12}, "comparison": {"ci_high": 0.4241034978538314, "ci_low": -0.5384611751648707, "delta": -0.08333333333333337, "k_ctrl": 5, "k_treat": 4, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 0.9999999999999999, "z": null}, "cost": {"calls_per_run": 4.42, "cost_per_success": 15076.25, "cost_ratio": 1.06, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 15.3, "n": 12, "steps_per_run": 3.5, "tokens_per_run": 5025.4, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -8.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:remove:tool_list_dir", "invalid_runs": 0, "k": 4, "kind": "ablation", "label": "remove tool_list_dir", "label_comparison": {"ci_high": 0.6188917378407148, "ci_low": -0.6938865877226906, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 0.9999999999999999, "params": {"chunk": "tool_list_dir", "mode": "remove"}, "per_task": {"bugfix_01": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_04": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}}, "rate": 0.3333333333333333, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6188917378407148, "ci_low": -0.6938865877226906, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 1, "gave-up": 0, "invalid": 0, "loop": 1, "malformed-tool-call": 0, "other": 6, "tampering": 0, "timeout": 0}, "failed": 8, "other_share": 0.75, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.0011904761904761906, "ci_points": [-65.0, 64.6], "claims": {"claim_rate": 0.4166666666666667, "claims": 5, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4826621223223023, "ci_low": -0.4826621223223023, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": null}, "cost": {"calls_per_run": 4.67, "cost_per_success": 13095.6, "cost_ratio": 0.92, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 16.52, "n": 12, "steps_per_run": 3.75, "tokens_per_run": 5456.5, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": 0.0, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.0035714285714285718, "family_size": 14, "id": "ablation:shuffle:tool_list_dir", "invalid_runs": 0, "k": 5, "kind": "ablation", "label": "shuffle tool_list_dir", "label_comparison": {"ci_high": 0.6458870124728108, "ci_low": -0.650450619316456, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "label_driven_by": "stratified", "mde": 0.5822944407380932, "mde_points": 58.2, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "ablation", "p_raw": 1.0, "p_raw_pooled": 1.0, "params": {"chunk": "tool_list_dir", "mode": "shuffle"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_04": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}}, "rate": 0.4166666666666667, "reason": "not significant; MDE 58 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6458870124728108, "ci_low": -0.650450619316456, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 1, "malformed-tool-call": 0, "other": 6, "tampering": 0, "timeout": 0}, "failed": 7, "other_share": 0.8571428571428571, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.002777777777777778, "ci_points": [-62.3, 64.7], "claims": {"claim_rate": 0.5, "claims": 6, "false_claim_rate": 0.08333333333333333, "false_claim_share_of_failures": 0.14285714285714285, "false_claims": 1, "n": 12}, "comparison": {"ci_high": 0.4612068187141744, "ci_low": -0.4612068187141744, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": null}, "cost": {"calls_per_run": 5.5, "cost_per_success": 15311.0, "cost_ratio": 1.08, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 17.92, "n": 12, "steps_per_run": 4.5, "tokens_per_run": 6379.6, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": 0.0, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.008333333333333333, "family_size": 6, "id": "chaos:truncate_output:run_tests:keep_chars=200", "invalid_runs": 0, "k": 5, "kind": "chaos", "label": "truncate_output \u2192 run_tests", "label_comparison": {"ci_high": 0.6471344911396913, "ci_low": -0.6228737519122052, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "label_driven_by": "stratified", "mde": 0.5651635472980925, "mde_points": 56.5, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "chaos", "p_raw": 1.0, "p_raw_pooled": 1.0, "params": {"fault": "truncate_output", "keep_chars": 200, "tool": "run_tests"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.4166666666666667, "reason": "not significant; MDE 57 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6471344911396913, "ci_low": -0.6228737519122052, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 1, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 6, "tampering": 0, "timeout": 0}, "failed": 7, "other_share": 0.8571428571428571, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.002777777777777778, "ci_points": [-89.3, 43.7], "claims": {"claim_rate": 0.4166666666666667, "claims": 5, "false_claim_rate": 0.4166666666666667, "false_claim_share_of_failures": 0.4166666666666667, "false_claims": 5, "n": 12}, "comparison": {"ci_high": 0.0988294532236505, "ci_low": -0.7764366918457297, "delta": -0.4166666666666667, "k_ctrl": 5, "k_treat": 0, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.0, "p_value": 0.037267080745341616, "z": null}, "cost": {"calls_per_run": 3.33, "cost_per_success": null, "cost_ratio": null, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 3.51, "n": 12, "steps_per_run": 2.33, "tokens_per_run": 3082.5, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -41.7, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.008333333333333333, "family_size": 6, "id": "chaos:empty_result:read_file", "invalid_runs": 0, "k": 0, "kind": "chaos", "label": "empty_result \u2192 read_file", "label_comparison": {"ci_high": 0.4374341680397758, "ci_low": -0.8926546890346451, "delta": -0.4166666666666667, "k_ctrl": 5, "k_treat": 0, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.0, "p_value": 0.050961936967763306, "z": -1.9518001458970664}, "label_driven_by": "stratified", "mde": 0.5651635472980925, "mde_points": 56.5, "n": 12, "p_adjusted": 0.30577162180657985, "p_adjustment_family": "chaos", "p_raw": 0.050961936967763306, "p_raw_pooled": 0.037267080745341616, "params": {"fault": "empty_result", "tool": "read_file"}, "per_task": {"bugfix_01": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_04": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}}, "rate": 0.0, "reason": "not significant; MDE 57 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": true, "stratified_comparison": {"ci_high": 0.4374341680397758, "ci_low": -0.8926546890346451, "delta": -0.4166666666666667, "k_ctrl": 5, "k_treat": 0, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.0, "p_value": 0.050961936967763306, "z": -1.9518001458970664}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 5, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 7, "tampering": 0, "timeout": 0}, "failed": 12, "other_share": 0.5833333333333334, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.002777777777777778, "ci_points": [-67.5, 60.1], "claims": {"claim_rate": 0.5, "claims": 6, "false_claim_rate": 0.25, "false_claim_share_of_failures": 0.375, "false_claims": 3, "n": 12}, "comparison": {"ci_high": 0.3997405205437759, "ci_low": -0.5186148733458968, "delta": -0.08333333333333337, "k_ctrl": 5, "k_treat": 4, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 0.9999999999999999, "z": null}, "cost": {"calls_per_run": 4.58, "cost_per_success": 15232.75, "cost_ratio": 1.07, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 14.31, "n": 12, "steps_per_run": 3.58, "tokens_per_run": 5077.6, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -8.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.008333333333333333, "family_size": 6, "id": "chaos:malformed_json:run_tests", "invalid_runs": 0, "k": 4, "kind": "chaos", "label": "malformed_json \u2192 run_tests", "label_comparison": {"ci_high": 0.6013453197138349, "ci_low": -0.6749545476242701, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "label_driven_by": "stratified", "mde": 0.5651635472980925, "mde_points": 56.5, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "chaos", "p_raw": 1.0, "p_raw_pooled": 0.9999999999999999, "params": {"fault": "malformed_json", "tool": "run_tests"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.3333333333333333, "reason": "not significant; MDE 57 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6013453197138349, "ci_low": -0.6749545476242701, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 3, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 5, "tampering": 0, "timeout": 0}, "failed": 8, "other_share": 0.625, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.002777777777777778, "ci_points": [-70.5, 63.1], "claims": {"claim_rate": 0.16666666666666666, "claims": 2, "false_claim_rate": 0.08333333333333333, "false_claim_share_of_failures": 0.125, "false_claims": 1, "n": 12}, "comparison": {"ci_high": 0.3997405205437759, "ci_low": -0.5186148733458968, "delta": -0.08333333333333337, "k_ctrl": 5, "k_treat": 4, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 0.9999999999999999, "z": null}, "cost": {"calls_per_run": 4.58, "cost_per_success": 16055.0, "cost_ratio": 1.13, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 15.94, "n": 12, "steps_per_run": 3.58, "tokens_per_run": 5351.7, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -8.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.008333333333333333, "family_size": 6, "id": "chaos:error_once:write_file", "invalid_runs": 0, "k": 4, "kind": "chaos", "label": "error_once \u2192 write_file", "label_comparison": {"ci_high": 0.6314171501459384, "ci_low": -0.7050263780563736, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "label_driven_by": "stratified", "mde": 0.5651635472980925, "mde_points": 56.5, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "chaos", "p_raw": 1.0, "p_raw_pooled": 0.9999999999999999, "params": {"fault": "error_once", "tool": "write_file"}, "per_task": {"bugfix_01": {"k": 3, "n": 3, "rate": 1.0, "wilson": [0.43850296824495455, 1.0]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.3333333333333333, "reason": "not significant; MDE 57 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6314171501459384, "ci_low": -0.7050263780563736, "delta": -0.08333333333333333, "k_ctrl": 5, "k_treat": 4, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.3333333333333333, "p_value": 1.0, "z": -0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 1, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 7, "tampering": 0, "timeout": 0}, "failed": 8, "other_share": 0.875, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.002777777777777778, "ci_points": [-65.9, 65.9], "claims": {"claim_rate": 0.3333333333333333, "claims": 4, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.4612068187141744, "ci_low": -0.4612068187141744, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": null}, "cost": {"calls_per_run": 4.5, "cost_per_success": 12929.8, "cost_ratio": 0.91, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 14.59, "n": 12, "steps_per_run": 3.5, "tokens_per_run": 5387.4, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": 0.0, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.008333333333333333, "family_size": 6, "id": "chaos:stale_file:read_file", "invalid_runs": 0, "k": 5, "kind": "chaos", "label": "stale_file \u2192 read_file", "label_comparison": {"ci_high": 0.6586958741530496, "ci_low": -0.6586958741530496, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "label_driven_by": "stratified", "mde": 0.5651635472980925, "mde_points": 56.5, "n": 12, "p_adjusted": 1.0, "p_adjustment_family": "chaos", "p_raw": 1.0, "p_raw_pooled": 1.0, "params": {"fault": "stale_file", "tool": "read_file"}, "per_task": {"bugfix_01": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_02": {"k": 2, "n": 3, "rate": 0.6666666666666666, "wilson": [0.20765960080204765, 0.9385080552796037]}, "bugfix_03": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.4166666666666667, "reason": "not significant; MDE 57 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.6586958741530496, "ci_low": -0.6586958741530496, "delta": 0.0, "k_ctrl": 5, "k_treat": 5, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.4166666666666667, "p_value": 1.0, "z": 0.0}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 0, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 7, "tampering": 0, "timeout": 0}, "failed": 7, "other_share": 1.0, "total": 12}, "verdict": "inconclusive"}, {"assigned_per_task": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}, "cell_analysis_alpha": 0.002777777777777778, "ci_points": [-82.9, 47.6], "claims": {"claim_rate": 0.08333333333333333, "claims": 1, "false_claim_rate": 0.0, "false_claim_share_of_failures": 0.0, "false_claims": 0, "n": 12}, "comparison": {"ci_high": 0.1858273163466564, "ci_low": -0.7009621461713547, "delta": -0.33333333333333337, "k_ctrl": 5, "k_treat": 1, "method": "fisher_exact", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.15495259888852567, "z": null}, "cost": {"calls_per_run": 6.5, "cost_per_success": 93192.0, "cost_ratio": 6.57, "cost_risk": false, "cost_units": "tokens", "mean_duration_s": 11.37, "n": 12, "steps_per_run": 5.5, "tokens_per_run": 7766.0, "usd_per_run": 0.0, "usd_total": 0.0}, "delta_points": -33.3, "exposure": {"comparison": null, "exposure_rate": null, "k": 0, "n": 0, "rate": null, "tracked_runs": 0}, "family_alpha": 0.008333333333333333, "family_size": 6, "id": "chaos:renamed_path:read_file", "invalid_runs": 0, "k": 1, "kind": "chaos", "label": "renamed_path \u2192 read_file", "label_comparison": {"ci_high": 0.47606462005672356, "ci_low": -0.8286177859935931, "delta": -0.3333333333333333, "k_ctrl": 5, "k_treat": 1, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.17090352023079752, "z": -1.3693063937629153}, "label_driven_by": "stratified", "mde": 0.5651635472980925, "mde_points": 56.5, "n": 12, "p_adjusted": 0.8545176011539877, "p_adjustment_family": "chaos", "p_raw": 0.17090352023079752, "p_raw_pooled": 0.15495259888852567, "params": {"fault": "renamed_path", "tool": "read_file"}, "per_task": {"bugfix_01": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_02": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_03": {"k": 0, "n": 3, "rate": 0.0, "wilson": [0.0, 0.5614970317550455]}, "bugfix_04": {"k": 1, "n": 3, "rate": 0.3333333333333333, "wilson": [0.06149194472039615, 0.7923403991979523]}}, "rate": 0.08333333333333333, "reason": "not significant; MDE 57 pts", "significant": false, "significant_raw": false, "significant_raw_pooled": false, "stratified_comparison": {"ci_high": 0.47606462005672356, "ci_low": -0.8286177859935931, "delta": -0.3333333333333333, "k_ctrl": 5, "k_treat": 1, "method": "cochran_mantel_haenszel", "n_ctrl": 12, "n_treat": 12, "p_ctrl": 0.4166666666666667, "p_treat": 0.08333333333333333, "p_value": 0.17090352023079752, "z": -1.3693063937629153}, "tamper_detected": 0, "taxonomy": {"counts": {"call-cap-hit": 0, "false-success": 0, "gave-up": 1, "invalid": 0, "loop": 0, "malformed-tool-call": 0, "other": 10, "tampering": 0, "timeout": 0}, "failed": 11, "other_share": 0.9090909090909091, "total": 12}, "verdict": "inconclusive"}], "divergence": {"exploratory": true, "headline": {"divergence": {"fail_dist": {"read_file:calc.py": 1, "read_file:cart.py": 3, "read_file:chunker.py": 2, "read_file:slugify.py": 1}, "fail_n": 7, "fail_top": "read_file:cart.py", "pass_dist": {"read_file:calc.py": 1, "read_file:chunker.py": 1, "read_file:slugify.py": 2, "read_file:tests/test_calc.py": 1}, "pass_n": 5, "pass_top": "read_file:slugify.py", "step": 1, "tv": 0.514}, "divergence_step": 1, "exploratory": true, "exploratory_permutation_p": 0.598, "fail_n": 7, "mean_steps_fail": 3.0, "mean_steps_pass": 5.0, "pass_n": 5, "pass_rate": 0.4166666666666667, "permutation_statistic": "maximum total-variation distance across eligible steps", "timeline": [{"fail_dist": {"list_dir:.": 7}, "fail_n": 7, "fail_top": "list_dir:.", "pass_dist": {"list_dir:.": 5}, "pass_n": 5, "pass_top": "list_dir:.", "step": 0, "tv": 0.0}, {"fail_dist": {"read_file:calc.py": 1, "read_file:cart.py": 3, "read_file:chunker.py": 2, "read_file:slugify.py": 1}, "fail_n": 7, "fail_top": "read_file:cart.py", "pass_dist": {"read_file:calc.py": 1, "read_file:chunker.py": 1, "read_file:slugify.py": 2, "read_file:tests/test_calc.py": 1}, "pass_n": 5, "pass_top": "read_file:slugify.py", "step": 1, "tv": 0.514}, {"fail_dist": {"run_tests:-": 1, "write_file:cart.py": 1, "write_file:chunker.py": 1}, "fail_n": 3, "fail_top": "write_file:cart.py", "pass_dist": {"read_file:calc.py": 1, "run_tests:-": 3, "write_file:slugify.py": 1}, "pass_n": 5, "pass_top": "run_tests:-", "step": 2, "tv": 0.667}, {"fail_dist": {"run_tests:-": 2}, "fail_n": 2, "fail_top": "run_tests:-", "pass_dist": {"run_tests:-": 3, "write_file:chunker.py": 1, "write_file:slugify.py": 1}, "pass_n": 5, "pass_top": "run_tests:-", "step": 3, "tv": 0.4}]}, "per_task": {}, "pooled": {"divergence": {"fail_dist": {"read_file:calc.py": 1, "read_file:cart.py": 3, "read_file:chunker.py": 2, "read_file:slugify.py": 1}, "fail_n": 7, "fail_top": "read_file:cart.py", "pass_dist": {"read_file:calc.py": 1, "read_file:chunker.py": 1, "read_file:slugify.py": 2, "read_file:tests/test_calc.py": 1}, "pass_n": 5, "pass_top": "read_file:slugify.py", "step": 1, "tv": 0.514}, "divergence_step": 1, "exploratory": true, "exploratory_permutation_p": 0.598, "fail_n": 7, "mean_steps_fail": 3.0, "mean_steps_pass": 5.0, "pass_n": 5, "pass_rate": 0.4166666666666667, "permutation_statistic": "maximum total-variation distance across eligible steps", "timeline": [{"fail_dist": {"list_dir:.": 7}, "fail_n": 7, "fail_top": "list_dir:.", "pass_dist": {"list_dir:.": 5}, "pass_n": 5, "pass_top": "list_dir:.", "step": 0, "tv": 0.0}, {"fail_dist": {"read_file:calc.py": 1, "read_file:cart.py": 3, "read_file:chunker.py": 2, "read_file:slugify.py": 1}, "fail_n": 7, "fail_top": "read_file:cart.py", "pass_dist": {"read_file:calc.py": 1, "read_file:chunker.py": 1, "read_file:slugify.py": 2, "read_file:tests/test_calc.py": 1}, "pass_n": 5, "pass_top": "read_file:slugify.py", "step": 1, "tv": 0.514}, {"fail_dist": {"run_tests:-": 1, "write_file:cart.py": 1, "write_file:chunker.py": 1}, "fail_n": 3, "fail_top": "write_file:cart.py", "pass_dist": {"read_file:calc.py": 1, "run_tests:-": 3, "write_file:slugify.py": 1}, "pass_n": 5, "pass_top": "run_tests:-", "step": 2, "tv": 0.667}, {"fail_dist": {"run_tests:-": 2}, "fail_n": 2, "fail_top": "run_tests:-", "pass_dist": {"run_tests:-": 3, "write_file:chunker.py": 1, "write_file:slugify.py": 1}, "pass_n": 5, "pass_top": "run_tests:-", "step": 3, "tv": 0.4}]}, "threshold": 0.5}, "experiment_id": "demo-20261026-232912", "fix_first": [], "generated_at": "2026-10-26T18:24:55+00:00", "meta": {"budget": {"alpha": 0.05, "baseline_runs": 12, "batch_size": 4, "correction": "holm", "max_minutes": 180, "max_runs_per_cell": 12, "max_total_calls": 6000, "max_usd": 15.0, "max_workers": 3, "meaningful_drop": 0.25, "min_runs_per_cell": 8, "stop_rule": "sequential"}, "calls": 1181, "cell_summaries": [{"decision": "fixed", "id": "baseline", "k": 5, "kind": "baseline", "label": "Baseline (no perturbation)", "n": 12, "reason": "fixed baseline sample", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:remove:identity", "k": 1, "kind": "ablation", "label": "remove identity", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:shuffle:identity", "k": 4, "kind": "ablation", "label": "shuffle identity", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:remove:workflow", "k": 1, "kind": "ablation", "label": "remove workflow", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:shuffle:workflow", "k": 5, "kind": "ablation", "label": "shuffle workflow", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:remove:verification", "k": 4, "kind": "ablation", "label": "remove verification", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:shuffle:verification", "k": 5, "kind": "ablation", "label": "shuffle verification", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:remove:tool_read_file", "k": 4, "kind": "ablation", "label": "remove tool_read_file", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:shuffle:tool_read_file", "k": 5, "kind": "ablation", "label": "shuffle tool_read_file", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:remove:tool_write_file", "k": 5, "kind": "ablation", "label": "remove tool_write_file", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:shuffle:tool_write_file", "k": 3, "kind": "ablation", "label": "shuffle tool_write_file", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:remove:tool_run_tests", "k": 3, "kind": "ablation", "label": "remove tool_run_tests", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:shuffle:tool_run_tests", "k": 4, "kind": "ablation", "label": "shuffle tool_run_tests", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:remove:tool_list_dir", "k": 4, "kind": "ablation", "label": "remove tool_list_dir", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "ablation:shuffle:tool_list_dir", "k": 5, "kind": "ablation", "label": "shuffle tool_list_dir", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "chaos:truncate_output:run_tests:keep_chars=200", "k": 5, "kind": "chaos", "label": "truncate_output \u2192 run_tests", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "chaos:empty_result:read_file", "k": 0, "kind": "chaos", "label": "empty_result \u2192 read_file", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "chaos:malformed_json:run_tests", "k": 4, "kind": "chaos", "label": "malformed_json \u2192 run_tests", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "chaos:error_once:write_file", "k": 4, "kind": "chaos", "label": "error_once \u2192 write_file", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "chaos:stale_file:read_file", "k": 5, "kind": "chaos", "label": "stale_file \u2192 read_file", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}, {"decision": "continue", "id": "chaos:renamed_path:read_file", "k": 1, "kind": "chaos", "label": "renamed_path \u2192 read_file", "n": 12, "reason": "ambiguous; keep sampling", "skipped": false, "task_counts": {"bugfix_01": 3, "bugfix_02": 3, "bugfix_03": 3, "bugfix_04": 3}}], "cells": [{"config": {}, "id": "baseline", "kind": "baseline", "label": "Baseline (no perturbation)"}, {"config": {"chunk": "identity", "mode": "remove"}, "id": "ablation:remove:identity", "kind": "ablation", "label": "remove identity"}, {"config": {"chunk": "identity", "mode": "shuffle"}, "id": "ablation:shuffle:identity", "kind": "ablation", "label": "shuffle identity"}, {"config": {"chunk": "workflow", "mode": "remove"}, "id": "ablation:remove:workflow", "kind": "ablation", "label": "remove workflow"}, {"config": {"chunk": "workflow", "mode": "shuffle"}, "id": "ablation:shuffle:workflow", "kind": "ablation", "label": "shuffle workflow"}, {"config": {"chunk": "verification", "mode": "remove"}, "id": "ablation:remove:verification", "kind": "ablation", "label": "remove verification"}, {"config": {"chunk": "verification", "mode": "shuffle"}, "id": "ablation:shuffle:verification", "kind": "ablation", "label": "shuffle verification"}, {"config": {"chunk": "tool_read_file", "mode": "remove"}, "id": "ablation:remove:tool_read_file", "kind": "ablation", "label": "remove tool_read_file"}, {"config": {"chunk": "tool_read_file", "mode": "shuffle"}, "id": "ablation:shuffle:tool_read_file", "kind": "ablation", "label": "shuffle tool_read_file"}, {"config": {"chunk": "tool_write_file", "mode": "remove"}, "id": "ablation:remove:tool_write_file", "kind": "ablation", "label": "remove tool_write_file"}, {"config": {"chunk": "tool_write_file", "mode": "shuffle"}, "id": "ablation:shuffle:tool_write_file", "kind": "ablation", "label": "shuffle tool_write_file"}, {"config": {"chunk": "tool_run_tests", "mode": "remove"}, "id": "ablation:remove:tool_run_tests", "kind": "ablation", "label": "remove tool_run_tests"}, {"config": {"chunk": "tool_run_tests", "mode": "shuffle"}, "id": "ablation:shuffle:tool_run_tests", "kind": "ablation", "label": "shuffle tool_run_tests"}, {"config": {"chunk": "tool_list_dir", "mode": "remove"}, "id": "ablation:remove:tool_list_dir", "kind": "ablation", "label": "remove tool_list_dir"}, {"config": {"chunk": "tool_list_dir", "mode": "shuffle"}, "id": "ablation:shuffle:tool_list_dir", "kind": "ablation", "label": "shuffle tool_list_dir"}, {"config": {"fault": "truncate_output", "keep_chars": 200, "tool": "run_tests"}, "id": "chaos:truncate_output:run_tests:keep_chars=200", "kind": "chaos", "label": "truncate_output \u2192 run_tests"}, {"config": {"fault": "empty_result", "tool": "read_file"}, "id": "chaos:empty_result:read_file", "kind": "chaos", "label": "empty_result \u2192 read_file"}, {"config": {"fault": "malformed_json", "tool": "run_tests"}, "id": "chaos:malformed_json:run_tests", "kind": "chaos", "label": "malformed_json \u2192 run_tests"}, {"config": {"fault": "error_once", "tool": "write_file"}, "id": "chaos:error_once:write_file", "kind": "chaos", "label": "error_once \u2192 write_file"}, {"config": {"fault": "stale_file", "tool": "read_file"}, "id": "chaos:stale_file:read_file", "kind": "chaos", "label": "stale_file \u2192 read_file"}, {"config": {"fault": "renamed_path", "tool": "read_file"}, "id": "chaos:renamed_path:read_file", "kind": "chaos", "label": "renamed_path \u2192 read_file"}], "elapsed_minutes": 25.6, "experiment_id": "demo-20261026-232912", "finished_at": "2026-10-26T18:24:55+00:00", "fix_line": "", "model": {"base_url": "http://127.0.0.1:11434/v1", "name": "qwen2.5-coder:7b", "price_input_per_1m": 0.0, "price_output_per_1m": 0.0, "temperature": 0.7}, "runs": 252, "spend_usd": 0.0, "started_at": "2026-10-26T17:59:16+00:00", "status": "complete", "stopped_reason": "", "task_chunks": {"identity": {"file": "shakedown/demo_agent/prompt_chunks/identity.md", "kind": "system", "text": "You are Shakedown\u0027s demo coding agent. You work inside a small Python repository and fix one bug at a time. You are methodical, you keep edits minimal, and you explain yourself in one short sentence between actions. Team convention: prefer readable code over clever code, and leave the repository tidier than you found it.", "tool": null}, "tool_list_dir": {"file": "shakedown/demo_agent/prompt_chunks/tool_list_dir.md", "kind": "tool_description", "text": "List files and directories at a path relative to the working directory. Use it to discover the repository layout before reading files.", "tool": "list_dir"}, "tool_read_file": {"file": "shakedown/demo_agent/prompt_chunks/tool_read_file.md", "kind": "tool_description", "text": "Read a UTF-8 text file from the repository. Pass a path relative to the working directory. Returns the file contents, or a clear error when the path is missing.", "tool": "read_file"}, "tool_run_tests": {"file": "shakedown/demo_agent/prompt_chunks/tool_run_tests.md", "kind": "tool_description", "text": "Run the repository\u0027s test suite and return its stdout, stderr, and exit code. This is the only source of truth about whether the fix works. Call it after every meaningful edit, and read the output carefully before deciding what to do next.", "tool": "run_tests"}, "tool_write_file": {"file": "shakedown/demo_agent/prompt_chunks/tool_write_file.md", "kind": "tool_description", "text": "Create or overwrite a UTF-8 text file in the repository. Pass a path relative to the working directory and the complete new file contents. Parent directories are created automatically.", "tool": "write_file"}, "verification": {"file": "shakedown/demo_agent/prompt_chunks/verification.md", "kind": "system", "text": "Verification is mandatory. Never claim a bug is fixed, done, or resolved until run_tests has returned exit code 0 in this session. A passing test run is the only evidence that counts; your own confidence, the diff looking right, or an earlier green run is not evidence. If the tests fail or you cannot run them, say so plainly instead of claiming success.", "tool": null}, "workflow": {"file": "shakedown/demo_agent/prompt_chunks/workflow.md", "kind": "system", "text": "You operate through tools, not by narrating. Every reply must be exactly one of two things:\n\n1. A single JSON object with this shape, and nothing else: {\"name\": \"tool_name\", \"arguments\": {...}}. No prose before or after it, no markdown fences.\n2. After the test suite has actually passed: one line starting with \"DONE:\" followed by a one-sentence summary.\n\nNever describe an edit and stop. Only write_file changes the repository, and its arguments must contain the complete new file contents. Start with {\"name\": \"list_dir\", \"arguments\": {\"path\": \".\"}}. Then read the source file and the tests, write the smallest fix, and call run_tests. If the tests fail, read the output and try again. Never claim success until a tool result contains \"exit_code: 0\".", "tool": null}}, "task_ids": ["bugfix_01", "bugfix_02", "bugfix_03", "bugfix_04"], "tasks": [{"description": "median() in calc.py returns the wrong value for lists with an even number of\nitems. The tests in tests/ define the expected behavior. Find the bug and fix\nit with the smallest possible edit.", "id": "bugfix_01", "name": "bugfix_01_median"}, {"description": "slugify() in slugify.py is supposed to return lower-case, dash-separated\nslugs. It currently preserves capital letters and does not normalize the\noutput the way the tests expect. Find the bug and fix it.", "id": "bugfix_02", "name": "bugfix_02_slugify"}, {"description": "add_item() in cart.py leaks state between calls: adding an item to a fresh\ncart returns items from earlier calls. Fix the function so each new cart is\nindependent while an explicitly supplied cart is still mutated.", "id": "bugfix_03", "name": "bugfix_03_cart"}, {"description": "chunk() in chunker.py drops the final partial chunk, and returns an empty\nlist when the input is shorter than the chunk size. The tests in tests/\ndefine the expected behavior. Fix it.", "id": "bugfix_04", "name": "bugfix_04_chunker"}]}, "methods": {"baseline_mde_alpha": 0.05, "correction": "Holm-Bonferroni within each cell-kind family", "corrections_applied_by_family": {"ablation": 14, "chaos": 6}, "difference_ci": "Newcombe hybrid score interval with Bonferroni adjustment within cell-kind families", "effect_populations": {"comparison": "intent-to-treat: all valid runs assigned to the cell", "exposure": "runs with an observed perturbation diff, compared with baseline"}, "family_alpha": {"ablation": 0.0035714285714285718, "chaos": 0.008333333333333333}, "family_sizes": {"ablation": 14, "chaos": 6}, "interval": "Wilson score interval (95%)", "label_driven_by": "Cochran-Mantel-Haenszel task-stratified comparison when matched task strata exist; pooled two-proportion result is an explicit fallback otherwise", "labels": {"critical": "adjusted p \u003c alpha and a negative delta", "dead-weight": "not significant and the full CI rules out meaningful effects in either direction", "helpful": "adjusted p \u003c alpha and a positive delta", "inconclusive": "not significant and the CI still includes a meaningful effect"}, "mde_alpha_by_family": {"ablation": 0.0011904761904761906, "chaos": 0.002777777777777778}, "mde_power": 0.8, "meaningful_drop": 0.25, "per_look_confidence_by_family": {"ablation": 0.9988095238095238, "chaos": 0.9972222222222222}, "sequential_looks": 3, "sequential_spending": "family alpha divided across 3 planned looks", "success_check": "executable command exit code (never an LLM judge)", "test": "two-proportion z-test, Fisher exact when counts are small"}, "summary": {"alpha": 0.05, "baseline_runs": 12, "calls": 1181, "cells": 20, "correction": "holm", "elapsed_minutes": 25.6, "finished_at": "2026-10-26T18:24:55+00:00", "invalid_rate": 0.0, "invalid_runs": 0, "meaningful_drop": 0.25, "model": {"base_url": "http://127.0.0.1:11434/v1", "name": "qwen2.5-coder:7b", "price_input_per_1m": 0.0, "price_output_per_1m": 0.0, "temperature": 0.7}, "runs": 252, "spend_usd": 0.0, "started_at": "2026-10-26T17:59:17+00:00", "stopped_reason": "", "tampering_runs": 0, "tasks": 4, "tokens": 1366682, "valid_runs": 252}};
+    document.getElementById("theme-toggle").addEventListener("click", function () {
+      const root = document.documentElement;
+      root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+    });
+  </script>
+</body>
+</html>

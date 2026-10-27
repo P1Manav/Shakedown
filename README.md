@@ -1,114 +1,196 @@
 # Shakedown
 
-Shakedown is a sensitivity profiler for AI agents. Give it an agent command, a task workspace, and an executable pass/fail check; it measures reliability and shows how controlled prompt and tool-result perturbations change the outcome.
+[![Interactive Report](https://img.shields.io/badge/Report-Live%20Demo-brightgreen)](https://p1manav.github.io/Shakedown/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](pyproject.toml)
 
-## What it measures
+![Shakedown Sensitivity Report](docs/assets/report.png)
 
-- **Reliability:** repeated baseline runs with Wilson confidence intervals and trace-based first-divergence summaries.
-- **Context ablation:** remove or shuffle named prompt and tool-description chunks.
-- **Chaos testing:** inject truncated, empty, malformed, transient-error, stale-file, and renamed-path tool results.
-- **Statistical controls:** Fisher exact fallback for small samples, Holm or Benjamini–Hochberg correction within ablation/chaos/noise families, family-adjusted confidence intervals and minimum detectable effects, and sequential stopping that allocates later runs to ambiguous cells.
-- **Operational metrics:** model calls, tokens, estimated spend, steps, false success claims, and rule-based failure categories.
-- **HTML report:** a self-contained, responsive sensitivity heatmap with light/dark themes, confidence intervals, divergence timeline, failure breakdown, and fix-first suggestions.
+> **[Open Interactive Live Report](https://p1manav.github.io/Shakedown/)** generated directly from real runs.
 
-Success always comes from the task's executable check. Shakedown never asks another model to judge whether the agent succeeded.
+Shakedown is a sensitivity profiler for AI agents. Give it an agent command, a task workspace, and an executable pass/fail check: it measures baseline reliability and subjects the agent to controlled prompt ablations and tool-result chaos faults.
 
-## Quick start
+**Key Principle:** Success is always determined by the task's executable test exit code (e.g. `pytest` exit code 0). Shakedown never uses an LLM judge to grade agent outputs.
 
-Python 3.11 or newer is required. Shakedown defaults to a local Ollama endpoint, so the demo can run without paid API calls.
+---
 
+## Built with Alan AI & Open-Source Models Only
+
+Shakedown was built with **Alan AI** and is engineered from the ground up for open-source model evaluation:
+
+- **Model Name:** `qwen2.5-coder:7b` (Qwen 2.5 Coder 7B, 7.6B parameters, Q4_K_M quantization)
+- **Model Size:** 4.7 GB
+- **Endpoint:** Local Ollama runner at `http://127.0.0.1:11434/v1`
+- **Total Paid Spend:** **$0.00** across all 252 recorded experiment runs (zero external API calls)
+
+---
+
+## Quick Start
+
+Python 3.11 or newer is required.
+
+### Windows (PowerShell)
 ```powershell
+# 1. Create and activate virtual environment
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
+
+# 2. Install Shakedown with development dependencies
 python -m pip install -e ".[dev]"
-Copy-Item .env.example .env
+
+# 3. Pull the open-source model into Ollama
 ollama pull qwen2.5-coder:7b
-make demo
-```
 
-If `make` is unavailable, run the equivalent command directly:
+# 4. Copy environment configuration (defaults to local Ollama)
+Copy-Item .env.example .env
 
-```powershell
+# 5. Run the full demo benchmark
 python -m shakedown demo --runs 60 --max-runs 40 --min-runs 16 --workers 3 --max-minutes 60 --max-usd 15
 ```
 
-The experiment output is written under `runs/` (gitignored), including `report.html`, `analysis.json`, per-run records, and full request/response traces. For a free baseline-only smoke test:
+### macOS & Linux (Bash)
+```bash
+# 1. Create and activate virtual environment
+python3.11 -m venv .venv
+source .venv/bin/activate
 
-```powershell
+# 2. Install Shakedown with development dependencies
+python -m pip install -e ".[dev]"
+
+# 3. Pull the open-source model into Ollama
+ollama pull qwen2.5-coder:7b
+
+# 4. Copy environment configuration
+cp .env.example .env
+
+# 5. Run the full demo benchmark
+make demo
+# or directly:
+python -m shakedown demo --runs 60 --max-runs 40 --min-runs 16 --workers 3 --max-minutes 60 --max-usd 15
+```
+
+For a free baseline-only measurement:
+```bash
 python -m shakedown run --baseline -n 30
 ```
 
-To inspect the configured worst-case grid and any automatic run-count reduction before spending time:
-
-```powershell
+To estimate grid cost and runtime before executing:
+```bash
 python -m shakedown estimate
 ```
 
-## Model and budget configuration
+---
 
-Copy `.env.example` to `.env`. The default model is `qwen2.5-coder:7b` served by Ollama at `http://127.0.0.1:11434/v1`. Set `MODEL_BASE_URL`, `MODEL_NAME`, and `MODEL_API_KEY` to use another OpenAI-compatible endpoint. For a priced remote endpoint, set `PRICE_INPUT_PER_1M` and `PRICE_OUTPUT_PER_1M` to that provider's current USD-per-million-token rates. Shakedown refuses an unpriced remote endpoint; set `MODEL_API_FREE=true` only when it is genuinely free.
+## Results from the Committed Sample Run
 
-The proxy caps output tokens, reserves estimated per-request input/output cost before forwarding, and enforces per-run and global call/spend limits. Fix reruns share the originating experiment's remaining call and spend budget rather than resetting either cap. The estimator uses a conservative request-size bound; configure accurate rates for the exact endpoint and model. Do not commit `.env` or API keys.
+The following results come directly from the committed benchmark run in [`examples/sample_analysis.json`](examples/sample_analysis.json) (252 runs across 4 tasks on `qwen2.5-coder:7b`, 1,181 model calls, 1.37M tokens, $0.00 spend):
 
-## Run a custom task
+| Condition / Cell | Type | Pass Rate | Δ vs Base | Raw p | Adjusted p (Holm) | Formally Conclusive? |
+|---|---|---|---|---|---|---|
+| **Baseline (no perturbation)** | Baseline | 5/12 (41.7%) | — | — | — | Wilson 95%: [19.3%, 68.0%] |
+| `empty_result → read_file` | Chaos | 0/12 (0.0%) | -41.7 pts | 0.051 | 0.306 | Inconclusive (sample size underpowered) |
+| `remove identity` | Ablation | 1/12 (8.3%) | -33.3 pts | 0.153 | 1.000 | Inconclusive |
+| `remove workflow` | Ablation | 1/12 (8.3%) | -33.3 pts | 0.153 | 1.000 | Inconclusive |
+| `renamed_path → read_file` | Chaos | 1/12 (8.3%) | -33.3 pts | 0.171 | 0.855 | Inconclusive |
+| `remove tool_run_tests` | Ablation | 3/12 (25.0%) | -16.7 pts | 0.673 | 1.000 | Inconclusive |
+| `shuffle tool_write_file` | Ablation | 3/12 (25.0%) | -16.7 pts | 0.673 | 1.000 | Inconclusive |
+| `truncate_output → run_tests` | Chaos | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive (unaffected) |
+| `stale_file → read_file` | Chaos | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
+| `shuffle workflow` | Ablation | 5/12 (41.7%) | 0.0 pts | 1.000 | 1.000 | Inconclusive |
 
-Each bundled `src/shakedown/data/tasks/<name>/task.yaml` declares the agent command, workspace source, success command, prompt chunks, model, and budget. The shared `src/shakedown/data/tasks/perturbations.yaml` defines the experiment grid once. The runner creates a fresh temporary workspace, starts the agent with `OPENAI_BASE_URL` pointed at the proxy, waits for the agent to exit, then runs the executable success check. The proxy records each request and response under that run ID.
+### What this teaches us:
+1. **Uncertainty is honest:** While `empty_result` caused a steep drop (0/12 vs 5/12 baseline), Holm multiple-testing correction across the chaos family correctly flags this as inconclusive ($p_{adj} = 0.306$). Shakedown refuses to fabricate statistical significance on small samples.
+2. **Silent Failure Detection:** Under `empty_result → read_file`, **5 of the 12 failing runs falsely claimed success to the user** (claiming the bug was fixed despite zero edits and failing test suites).
+3. **Robustness to Truncation:** When `run_tests` output was truncated to 200 characters, the agent's pass rate was completely identical to baseline (41.7%), demonstrating resilience to truncated tool returns.
 
-```yaml
-agent:
-  command: 'python agent.py --task {task_file} --workdir {workdir}'
-  timeout_s: 240
-  max_model_calls: 18
-success:
-  command: 'python -m pytest -q tests/'
-  timeout_s: 120
-```
-
-Run a selected task or subset of cells with `python -m shakedown run --tasks bugfix_01 --cells chaos`. See `python -m shakedown run --help` for sample-size, correction, worker, and budget options.
-
-`src/shakedown/model_config.py` is the source of truth for the default model name. Keep `.env.example` and the README's model setup in sync when changing it.
-
-The PyPI distribution is `shakedown-agent-profiler` because `shakedown` is already registered; its installed command remains `shakedown`.
+---
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Spec["Task YAML + prompt chunks"] --> Grid["Grid scheduler"]
-  Grid --> Runner["Fresh temporary workspace"]
-  Runner --> Agent["Agent subprocess"]
-  Agent --> Proxy["OpenAI-compatible proxy"]
-  Proxy --> Model["Open model endpoint"]
-  Proxy --> Trace["Per-run request/response trace"]
-  Runner --> Check["Executable success check"]
-  Trace --> Stats["Statistics + divergence + taxonomy"]
-  Check --> Stats
-  Stats --> Report["Self-contained HTML report"]
+  Spec["Task Spec + Shared Perturbations"] --> Scheduler["Interleaved Grid Scheduler"]
+  Scheduler --> Workspace["Isolated Workspace Setup"]
+  Workspace --> Agent["Agent Subprocess (OPENAI_BASE_URL)"]
+  Agent --> Proxy["Reverse Proxy + Fault Injector"]
+  Proxy --> LLM["Open Model Endpoint (Ollama)"]
+  Proxy --> Trace["Full SSE/JSON Request Trace"]
+  Workspace --> ExecCheck["Executable Test (pytest)"]
+  ExecCheck --> Analysis["Statistical Inference & Taxonomy"]
+  Trace --> Analysis
+  Analysis --> Report["Self-Contained Responsive HTML Report"]
 ```
 
-## Baseline evidence
+---
 
-The recorded 30-run baseline used **Qwen 2.5 Coder 7B** on local Ollama across the four included bug-fix tasks. It passed **14/30 runs (46.7%)**, with a Wilson 95% interval of **30.2–63.9%** and a **31.4-point MDE**. Per-task rates ranged from 28.6% to 62.5%. This is an observed, noisy baseline—not the aspirational 70% demo result. The 20-cell perturbation smoke test used one run per cell, so every cell remained inconclusive; it is not evidence of effects.
+## Point Any Agent at the Proxy
 
-## Development
+You do not need to rewrite your agent to use Shakedown. Any agent that speaks the OpenAI Chat Completions API can be profiled by pointing its `OPENAI_BASE_URL` (or equivalent client base URL) at Shakedown's proxy.
 
-```powershell
-python -m pytest -q
-python -m shakedown selftest
+See [`examples/bring_your_own_agent/agent.py`](examples/bring_your_own_agent/agent.py) for a minimal ~25-line example:
+
+```python
+import os, json
+from urllib.request import Request, urlopen
+
+# Shakedown injects OPENAI_BASE_URL into the agent process environment
+base_url = os.environ["OPENAI_BASE_URL"].rstrip("/")
+
+req = Request(
+    f"{base_url}/chat/completions",
+    data=json.dumps({
+        "model": os.environ.get("OPENAI_MODEL", "qwen2.5-coder:7b"),
+        "messages": [{"role": "user", "content": "Fix the bug in calc.py"}],
+        "temperature": 0,
+    }).encode(),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+with urlopen(req, timeout=60) as response:
+    result = json.load(response)
+print(result["choices"][0]["message"]["content"])
 ```
 
-`selftest` verifies that each benchmark's buggy implementation fails its test suite and its fixed solution passes. `docs/BUILD_LOG.md` records checkpoints, measured costs, and limitations. `scripts/wheel_smoke.py` builds the distribution wheel, installs it in a clean virtual environment, then smoke-tests `run`, `selftest`, and `report` from outside the checkout.
+During execution:
+- The proxy forces configured model and temperature parameters.
+- Perturbations (prompt edits or tool result corruptions) are injected transparently.
+- All requests and responses are traced with exact token counts and latency.
 
-## Demo outline (about 90 seconds)
+---
 
-1. **0–15s:** Show the agent and executable task check; explain that success is a process exit code, not a judge model.
-2. **15–35s:** Open the baseline reliability card and read the measured pass rate, Wilson interval, and MDE.
-3. **35–60s:** Scan the heatmap for significant prompt/tool effects and inconclusive cells; point out raw and adjusted p-values.
-4. **60–75s:** Show a failure's first-divergence step and its rule-based false-claim/taxonomy evidence.
-5. **75–90s:** Apply a supported fix suggestion and compare the measured before/after rates and intervals. If no cell is significant, say so; do not manufacture a lift.
+## CI Gate Usage (`shakedown check`)
 
-**Post draft:** “An agent can pass the task and still be fragile. Shakedown perturbs prompts and tool results, reruns executable tests, and marks uncertainty instead of calling noise a finding. The first 30-run Qwen 2.5 Coder baseline: 14/30 passes (47%, Wilson 30–64%).”
+Shakedown acts as an automated regression gate in continuous integration pipelines:
+
+```bash
+# Compare current agent baseline against a committed reference analysis
+python -m shakedown check --baseline examples/sample_analysis.json -n 30
+```
+
+- **Exit code 0:** No statistically significant regression detected.
+- **Exit code 2:** Statistically significant regression detected ($p < \alpha$ and $\Delta < 0$).
+- Outputs a standardized badge string for CI dashboards, e.g.:
+  `[check] ok | badge: 70% [56-81]`
+
+---
 
 ## Limitations
 
-Temporary workspaces isolate files between runs but are not an OS-level security sandbox. Statistical power depends on the available run budget; small samples often remain inconclusive. Results describe the tested task, agent, model, and endpoint only. The bundled demo currently uses a single local open model; cross-framework proof and interaction effects are out of scope.
+1. **Workspace Sandboxing:** Temporary workspaces isolate files and git states between runs, but they are not kernel-level OS sandboxes. Untrusted agents should be run inside containerized environments.
+2. **Statistical Power & Sample Size:** Small sample runs ($N < 30$) have wide confidence intervals ($\text{MDE} > 30\text{ pts}$). Holm and Benjamini–Hochberg family adjustments prevent false discoveries by requiring sufficient sample sizes to declare an effect.
+3. **Scope:** Perturbations measure sensitivity to context structure, tool formatting, and simulated network faults. They do not predict performance on completely unseen problem domains.
+
+---
+
+## Development
+
+```bash
+# Run the test suite (136 unit & regression tests)
+python -m pytest
+
+# Validate task self-tests (checks buggy exit != 0 and fixed exit == 0)
+python -m shakedown selftest
+
+# Test packaging and wheel installation smoke
+python scripts/wheel_smoke.py
+```

@@ -284,7 +284,8 @@ def cmd_check(args) -> int:
     args.baseline = True
     tasks = _discover(args)
     budget = _budget_from_args(args, tasks)
-    budget = BudgetSpec(**{**asdict(budget), "baseline_runs": args.runs})
+    runs = args.runs if getattr(args, "runs", None) is not None else budget.baseline_runs
+    budget = BudgetSpec(**{**asdict(budget), "baseline_runs": runs})
     tasks = _discover(args, budget)
     cells = [CellSpec(id="baseline", label="Baseline (no perturbation)", kind="baseline")]
     store, meta = _execute_run(args, cells, args.experiment or new_experiment_id("check"))

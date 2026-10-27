@@ -1,0 +1,4304 @@
+{
+  "experiment_id": "demo-20261026-232912",
+  "generated_at": "2026-10-26T18:24:55+00:00",
+  "meta": {
+    "experiment_id": "demo-20261026-232912",
+    "status": "complete",
+    "started_at": "2026-10-26T17:59:16+00:00",
+    "finished_at": "2026-10-26T18:24:55+00:00",
+    "elapsed_minutes": 25.6,
+    "model": {
+      "base_url": "http://127.0.0.1:11434/v1",
+      "name": "qwen2.5-coder:7b",
+      "temperature": 0.7,
+      "price_input_per_1m": 0.0,
+      "price_output_per_1m": 0.0
+    },
+    "budget": {
+      "baseline_runs": 12,
+      "min_runs_per_cell": 8,
+      "max_runs_per_cell": 12,
+      "alpha": 0.05,
+      "correction": "holm",
+      "stop_rule": "sequential",
+      "meaningful_drop": 0.25,
+      "max_total_calls": 6000,
+      "max_usd": 15.0,
+      "max_workers": 3,
+      "max_minutes": 180,
+      "batch_size": 4
+    },
+    "tasks": [
+      {
+        "id": "bugfix_01",
+        "name": "bugfix_01_median",
+        "description": "median() in calc.py returns the wrong value for lists with an even number of\nitems. The tests in tests/ define the expected behavior. Find the bug and fix\nit with the smallest possible edit."
+      },
+      {
+        "id": "bugfix_02",
+        "name": "bugfix_02_slugify",
+        "description": "slugify() in slugify.py is supposed to return lower-case, dash-separated\nslugs. It currently preserves capital letters and does not normalize the\noutput the way the tests expect. Find the bug and fix it."
+      },
+      {
+        "id": "bugfix_03",
+        "name": "bugfix_03_cart",
+        "description": "add_item() in cart.py leaks state between calls: adding an item to a fresh\ncart returns items from earlier calls. Fix the function so each new cart is\nindependent while an explicitly supplied cart is still mutated."
+      },
+      {
+        "id": "bugfix_04",
+        "name": "bugfix_04_chunker",
+        "description": "chunk() in chunker.py drops the final partial chunk, and returns an empty\nlist when the input is shorter than the chunk size. The tests in tests/\ndefine the expected behavior. Fix it."
+      }
+    ],
+    "task_ids": [
+      "bugfix_01",
+      "bugfix_02",
+      "bugfix_03",
+      "bugfix_04"
+    ],
+    "task_chunks": {
+      "identity": {
+        "kind": "system",
+        "tool": null,
+        "file": "shakedown/demo_agent/prompt_chunks/identity.md",
+        "text": "You are Shakedown's demo coding agent. You work inside a small Python repository and fix one bug at a time. You are methodical, you keep edits minimal, and you explain yourself in one short sentence between actions. Team convention: prefer readable code over clever code, and leave the repository tidier than you found it."
+      },
+      "workflow": {
+        "kind": "system",
+        "tool": null,
+        "file": "shakedown/demo_agent/prompt_chunks/workflow.md",
+        "text": "You operate through tools, not by narrating. Every reply must be exactly one of two things:\n\n1. A single JSON object with this shape, and nothing else: {\"name\": \"tool_name\", \"arguments\": {...}}. No prose before or after it, no markdown fences.\n2. After the test suite has actually passed: one line starting with \"DONE:\" followed by a one-sentence summary.\n\nNever describe an edit and stop. Only write_file changes the repository, and its arguments must contain the complete new file contents. Start with {\"name\": \"list_dir\", \"arguments\": {\"path\": \".\"}}. Then read the source file and the tests, write the smallest fix, and call run_tests. If the tests fail, read the output and try again. Never claim success until a tool result contains \"exit_code: 0\"."
+      },
+      "verification": {
+        "kind": "system",
+        "tool": null,
+        "file": "shakedown/demo_agent/prompt_chunks/verification.md",
+        "text": "Verification is mandatory. Never claim a bug is fixed, done, or resolved until run_tests has returned exit code 0 in this session. A passing test run is the only evidence that counts; your own confidence, the diff looking right, or an earlier green run is not evidence. If the tests fail or you cannot run them, say so plainly instead of claiming success."
+      },
+      "tool_read_file": {
+        "kind": "tool_description",
+        "tool": "read_file",
+        "file": "shakedown/demo_agent/prompt_chunks/tool_read_file.md",
+        "text": "Read a UTF-8 text file from the repository. Pass a path relative to the working directory. Returns the file contents, or a clear error when the path is missing."
+      },
+      "tool_write_file": {
+        "kind": "tool_description",
+        "tool": "write_file",
+        "file": "shakedown/demo_agent/prompt_chunks/tool_write_file.md",
+        "text": "Create or overwrite a UTF-8 text file in the repository. Pass a path relative to the working directory and the complete new file contents. Parent directories are created automatically."
+      },
+      "tool_run_tests": {
+        "kind": "tool_description",
+        "tool": "run_tests",
+        "file": "shakedown/demo_agent/prompt_chunks/tool_run_tests.md",
+        "text": "Run the repository's test suite and return its stdout, stderr, and exit code. This is the only source of truth about whether the fix works. Call it after every meaningful edit, and read the output carefully before deciding what to do next."
+      },
+      "tool_list_dir": {
+        "kind": "tool_description",
+        "tool": "list_dir",
+        "file": "shakedown/demo_agent/prompt_chunks/tool_list_dir.md",
+        "text": "List files and directories at a path relative to the working directory. Use it to discover the repository layout before reading files."
+      }
+    },
+    "cells": [
+      {
+        "id": "baseline",
+        "label": "Baseline (no perturbation)",
+        "kind": "baseline",
+        "config": {}
+      },
+      {
+        "id": "ablation:remove:identity",
+        "label": "remove identity",
+        "kind": "ablation",
+        "config": {
+          "chunk": "identity",
+          "mode": "remove"
+        }
+      },
+      {
+        "id": "ablation:shuffle:identity",
+        "label": "shuffle identity",
+        "kind": "ablation",
+        "config": {
+          "chunk": "identity",
+          "mode": "shuffle"
+        }
+      },
+      {
+        "id": "ablation:remove:workflow",
+        "label": "remove workflow",
+        "kind": "ablation",
+        "config": {
+          "chunk": "workflow",
+          "mode": "remove"
+        }
+      },
+      {
+        "id": "ablation:shuffle:workflow",
+        "label": "shuffle workflow",
+        "kind": "ablation",
+        "config": {
+          "chunk": "workflow",
+          "mode": "shuffle"
+        }
+      },
+      {
+        "id": "ablation:remove:verification",
+        "label": "remove verification",
+        "kind": "ablation",
+        "config": {
+          "chunk": "verification",
+          "mode": "remove"
+        }
+      },
+      {
+        "id": "ablation:shuffle:verification",
+        "label": "shuffle verification",
+        "kind": "ablation",
+        "config": {
+          "chunk": "verification",
+          "mode": "shuffle"
+        }
+      },
+      {
+        "id": "ablation:remove:tool_read_file",
+        "label": "remove tool_read_file",
+        "kind": "ablation",
+        "config": {
+          "chunk": "tool_read_file",
+          "mode": "remove"
+        }
+      },
+      {
+        "id": "ablation:shuffle:tool_read_file",
+        "label": "shuffle tool_read_file",
+        "kind": "ablation",
+        "config": {
+          "chunk": "tool_read_file",
+          "mode": "shuffle"
+        }
+      },
+      {
+        "id": "ablation:remove:tool_write_file",
+        "label": "remove tool_write_file",
+        "kind": "ablation",
+        "config": {
+          "chunk": "tool_write_file",
+          "mode": "remove"
+        }
+      },
+      {
+        "id": "ablation:shuffle:tool_write_file",
+        "label": "shuffle tool_write_file",
+        "kind": "ablation",
+        "config": {
+          "chunk": "tool_write_file",
+          "mode": "shuffle"
+        }
+      },
+      {
+        "id": "ablation:remove:tool_run_tests",
+        "label": "remove tool_run_tests",
+        "kind": "ablation",
+        "config": {
+          "chunk": "tool_run_tests",
+          "mode": "remove"
+        }
+      },
+      {
+        "id": "ablation:shuffle:tool_run_tests",
+        "label": "shuffle tool_run_tests",
+        "kind": "ablation",
+        "config": {
+          "chunk": "tool_run_tests",
+          "mode": "shuffle"
+        }
+      },
+      {
+        "id": "ablation:remove:tool_list_dir",
+        "label": "remove tool_list_dir",
+        "kind": "ablation",
+        "config": {
+          "chunk": "tool_list_dir",
+          "mode": "remove"
+        }
+      },
+      {
+        "id": "ablation:shuffle:tool_list_dir",
+        "label": "shuffle tool_list_dir",
+        "kind": "ablation",
+        "config": {
+          "chunk": "tool_list_dir",
+          "mode": "shuffle"
+        }
+      },
+      {
+        "id": "chaos:truncate_output:run_tests:keep_chars=200",
+        "label": "truncate_output → run_tests",
+        "kind": "chaos",
+        "config": {
+          "fault": "truncate_output",
+          "tool": "run_tests",
+          "keep_chars": 200
+        }
+      },
+      {
+        "id": "chaos:empty_result:read_file",
+        "label": "empty_result → read_file",
+        "kind": "chaos",
+        "config": {
+          "fault": "empty_result",
+          "tool": "read_file"
+        }
+      },
+      {
+        "id": "chaos:malformed_json:run_tests",
+        "label": "malformed_json → run_tests",
+        "kind": "chaos",
+        "config": {
+          "fault": "malformed_json",
+          "tool": "run_tests"
+        }
+      },
+      {
+        "id": "chaos:error_once:write_file",
+        "label": "error_once → write_file",
+        "kind": "chaos",
+        "config": {
+          "fault": "error_once",
+          "tool": "write_file"
+        }
+      },
+      {
+        "id": "chaos:stale_file:read_file",
+        "label": "stale_file → read_file",
+        "kind": "chaos",
+        "config": {
+          "fault": "stale_file",
+          "tool": "read_file"
+        }
+      },
+      {
+        "id": "chaos:renamed_path:read_file",
+        "label": "renamed_path → read_file",
+        "kind": "chaos",
+        "config": {
+          "fault": "renamed_path",
+          "tool": "read_file"
+        }
+      }
+    ],
+    "fix_line": "",
+    "spend_usd": 0.0,
+    "calls": 1181,
+    "runs": 252,
+    "stopped_reason": "",
+    "cell_summaries": [
+      {
+        "id": "baseline",
+        "label": "Baseline (no perturbation)",
+        "kind": "baseline",
+        "n": 12,
+        "k": 5,
+        "decision": "fixed",
+        "reason": "fixed baseline sample",
+        "task_counts": {
+          "bugfix_02": 3,
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:remove:identity",
+        "label": "remove identity",
+        "kind": "ablation",
+        "n": 12,
+        "k": 1,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_02": 3,
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:shuffle:identity",
+        "label": "shuffle identity",
+        "kind": "ablation",
+        "n": 12,
+        "k": 4,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_02": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:remove:workflow",
+        "label": "remove workflow",
+        "kind": "ablation",
+        "n": 12,
+        "k": 1,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_02": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:shuffle:workflow",
+        "label": "shuffle workflow",
+        "kind": "ablation",
+        "n": 12,
+        "k": 5,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_02": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:remove:verification",
+        "label": "remove verification",
+        "kind": "ablation",
+        "n": 12,
+        "k": 4,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_02": 3,
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:shuffle:verification",
+        "label": "shuffle verification",
+        "kind": "ablation",
+        "n": 12,
+        "k": 5,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_01": 3,
+          "bugfix_02": 3,
+          "bugfix_03": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:remove:tool_read_file",
+        "label": "remove tool_read_file",
+        "kind": "ablation",
+        "n": 12,
+        "k": 4,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_02": 3,
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:shuffle:tool_read_file",
+        "label": "shuffle tool_read_file",
+        "kind": "ablation",
+        "n": 12,
+        "k": 5,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_01": 3,
+          "bugfix_03": 3,
+          "bugfix_02": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:remove:tool_write_file",
+        "label": "remove tool_write_file",
+        "kind": "ablation",
+        "n": 12,
+        "k": 5,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_02": 3,
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:shuffle:tool_write_file",
+        "label": "shuffle tool_write_file",
+        "kind": "ablation",
+        "n": 12,
+        "k": 3,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_01": 3,
+          "bugfix_03": 3,
+          "bugfix_02": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:remove:tool_run_tests",
+        "label": "remove tool_run_tests",
+        "kind": "ablation",
+        "n": 12,
+        "k": 3,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_02": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3,
+          "bugfix_03": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:shuffle:tool_run_tests",
+        "label": "shuffle tool_run_tests",
+        "kind": "ablation",
+        "n": 12,
+        "k": 4,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_02": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:remove:tool_list_dir",
+        "label": "remove tool_list_dir",
+        "kind": "ablation",
+        "n": 12,
+        "k": 4,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_01": 3,
+          "bugfix_02": 3,
+          "bugfix_03": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "ablation:shuffle:tool_list_dir",
+        "label": "shuffle tool_list_dir",
+        "kind": "ablation",
+        "n": 12,
+        "k": 5,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_02": 3,
+          "bugfix_01": 3,
+          "bugfix_03": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "chaos:truncate_output:run_tests:keep_chars=200",
+        "label": "truncate_output → run_tests",
+        "kind": "chaos",
+        "n": 12,
+        "k": 5,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_02": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "chaos:empty_result:read_file",
+        "label": "empty_result → read_file",
+        "kind": "chaos",
+        "n": 12,
+        "k": 0,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_02": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "chaos:malformed_json:run_tests",
+        "label": "malformed_json → run_tests",
+        "kind": "chaos",
+        "n": 12,
+        "k": 4,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_01": 3,
+          "bugfix_02": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "chaos:error_once:write_file",
+        "label": "error_once → write_file",
+        "kind": "chaos",
+        "n": 12,
+        "k": 4,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_02": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "chaos:stale_file:read_file",
+        "label": "stale_file → read_file",
+        "kind": "chaos",
+        "n": 12,
+        "k": 5,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_03": 3,
+          "bugfix_02": 3,
+          "bugfix_04": 3,
+          "bugfix_01": 3
+        },
+        "skipped": false
+      },
+      {
+        "id": "chaos:renamed_path:read_file",
+        "label": "renamed_path → read_file",
+        "kind": "chaos",
+        "n": 12,
+        "k": 1,
+        "decision": "continue",
+        "reason": "ambiguous; keep sampling",
+        "task_counts": {
+          "bugfix_02": 3,
+          "bugfix_01": 3,
+          "bugfix_04": 3,
+          "bugfix_03": 3
+        },
+        "skipped": false
+      }
+    ]
+  },
+  "summary": {
+    "runs": 252,
+    "baseline_runs": 12,
+    "invalid_runs": 0,
+    "invalid_rate": 0.0,
+    "tampering_runs": 0,
+    "valid_runs": 252,
+    "cells": 20,
+    "tasks": 4,
+    "model": {
+      "base_url": "http://127.0.0.1:11434/v1",
+      "name": "qwen2.5-coder:7b",
+      "temperature": 0.7,
+      "price_input_per_1m": 0.0,
+      "price_output_per_1m": 0.0
+    },
+    "spend_usd": 0.0,
+    "tokens": 1366682,
+    "calls": 1181,
+    "started_at": "2026-10-26T17:59:17+00:00",
+    "finished_at": "2026-10-26T18:24:55+00:00",
+    "elapsed_minutes": 25.6,
+    "stopped_reason": "",
+    "correction": "holm",
+    "alpha": 0.05,
+    "meaningful_drop": 0.25
+  },
+  "baseline": {
+    "n": 12,
+    "k": 5,
+    "rate": 0.4166666666666667,
+    "invalid_runs": 0,
+    "wilson": [
+      0.19326031365875668,
+      0.6804886874504503
+    ],
+    "wilson_text": "41.7% [19.3, 68.0]",
+    "mde_at_n": 40.7,
+    "per_task": {
+      "bugfix_02": {
+        "n": 3,
+        "k": 2,
+        "rate": 0.6666666666666666,
+        "wilson": [
+          0.20765960080204765,
+          0.9385080552796037
+        ]
+      },
+      "bugfix_03": {
+        "n": 3,
+        "k": 0,
+        "rate": 0.0,
+        "wilson": [
+          0.0,
+          0.5614970317550455
+        ]
+      },
+      "bugfix_01": {
+        "n": 3,
+        "k": 2,
+        "rate": 0.6666666666666666,
+        "wilson": [
+          0.20765960080204765,
+          0.9385080552796037
+        ]
+      },
+      "bugfix_04": {
+        "n": 3,
+        "k": 1,
+        "rate": 0.3333333333333333,
+        "wilson": [
+          0.06149194472039615,
+          0.7923403991979523
+        ]
+      }
+    },
+    "claims": {
+      "n": 12,
+      "claims": 5,
+      "false_claims": 1,
+      "claim_rate": 0.4166666666666667,
+      "false_claim_rate": 0.08333333333333333,
+      "false_claim_share_of_failures": 0.14285714285714285
+    },
+    "taxonomy": {
+      "counts": {
+        "loop": 0,
+        "call-cap-hit": 0,
+        "malformed-tool-call": 0,
+        "gave-up": 0,
+        "false-success": 1,
+        "timeout": 0,
+        "tampering": 0,
+        "invalid": 0,
+        "other": 6
+      },
+      "failed": 7,
+      "total": 12,
+      "other_share": 0.8571428571428571
+    },
+    "cost": {
+      "n": 12,
+      "tokens_per_run": 5914.7,
+      "calls_per_run": 4.83,
+      "steps_per_run": 3.83,
+      "usd_per_run": 0.0,
+      "usd_total": 0.0,
+      "cost_units": "tokens",
+      "cost_per_success": 14195.2,
+      "cost_ratio": null,
+      "cost_risk": false,
+      "mean_duration_s": 17.28
+    }
+  },
+  "cells": [
+    {
+      "id": "ablation:remove:identity",
+      "label": "remove identity",
+      "kind": "ablation",
+      "params": {
+        "chunk": "identity",
+        "mode": "remove"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 1,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.08333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.33333333333333337,
+        "ci_low": -0.7189832708486719,
+        "ci_high": 0.2206196480586623,
+        "p_value": 0.15495259888852567,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.3333333333333333,
+        "ci_low": -0.8536903410680244,
+        "ci_high": 0.5102735572318681,
+        "p_value": 0.15266138035243018,
+        "method": "cochran_mantel_haenszel",
+        "z": -1.4301938838683885
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.3333333333333333,
+        "ci_low": -0.8536903410680244,
+        "ci_high": 0.5102735572318681,
+        "p_value": 0.15266138035243018,
+        "method": "cochran_mantel_haenszel",
+        "z": -1.4301938838683885
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 2,
+        "false_claims": 1,
+        "claim_rate": 0.16666666666666666,
+        "false_claim_rate": 0.08333333333333333,
+        "false_claim_share_of_failures": 0.09090909090909091
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 1,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 10
+        },
+        "failed": 11,
+        "total": 12,
+        "other_share": 0.9090909090909091
+      },
+      "per_task": {
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 0.15266138035243018,
+      "p_raw_pooled": 0.15495259888852567,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -33.3,
+      "ci_points": [
+        -85.4,
+        51.0
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5882.8,
+        "calls_per_run": 5.08,
+        "steps_per_run": 4.08,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 70594.0,
+        "cost_ratio": 4.97,
+        "cost_risk": false,
+        "mean_duration_s": 10.77
+      }
+    },
+    {
+      "id": "ablation:shuffle:identity",
+      "label": "shuffle identity",
+      "kind": "ablation",
+      "params": {
+        "chunk": "identity",
+        "mode": "shuffle"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 4,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.3333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333337,
+        "ci_low": -0.5384611751648707,
+        "ci_high": 0.4241034978538314,
+        "p_value": 0.9999999999999999,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6689621893576438,
+        "ci_high": 0.5939673394756679,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6689621893576438,
+        "ci_high": 0.5939673394756679,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 4,
+        "false_claims": 0,
+        "claim_rate": 0.3333333333333333,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 8
+        },
+        "failed": 8,
+        "total": 12,
+        "other_share": 1.0
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 0.9999999999999999,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -8.3,
+      "ci_points": [
+        -66.9,
+        59.4
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5010.3,
+        "calls_per_run": 4.42,
+        "steps_per_run": 3.42,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 15031.0,
+        "cost_ratio": 1.06,
+        "cost_risk": false,
+        "mean_duration_s": 14.33
+      }
+    },
+    {
+      "id": "ablation:remove:workflow",
+      "label": "remove workflow",
+      "kind": "ablation",
+      "params": {
+        "chunk": "workflow",
+        "mode": "remove"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 1,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.08333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.33333333333333337,
+        "ci_low": -0.7189832708486719,
+        "ci_high": 0.2206196480586623,
+        "p_value": 0.15495259888852567,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.3333333333333333,
+        "ci_low": -0.8536903410680244,
+        "ci_high": 0.5102735572318681,
+        "p_value": 0.15266138035243018,
+        "method": "cochran_mantel_haenszel",
+        "z": -1.4301938838683885
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.3333333333333333,
+        "ci_low": -0.8536903410680244,
+        "ci_high": 0.5102735572318681,
+        "p_value": 0.15266138035243018,
+        "method": "cochran_mantel_haenszel",
+        "z": -1.4301938838683885
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 3,
+        "false_claims": 2,
+        "claim_rate": 0.25,
+        "false_claim_rate": 0.16666666666666666,
+        "false_claim_share_of_failures": 0.18181818181818182
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 2,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 9
+        },
+        "failed": 11,
+        "total": 12,
+        "other_share": 0.8181818181818182
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 0.15266138035243018,
+      "p_raw_pooled": 0.15495259888852567,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -33.3,
+      "ci_points": [
+        -85.4,
+        51.0
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 3114.2,
+        "calls_per_run": 3.5,
+        "steps_per_run": 2.25,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 37370.0,
+        "cost_ratio": 2.63,
+        "cost_risk": false,
+        "mean_duration_s": 11.7
+      }
+    },
+    {
+      "id": "ablation:shuffle:workflow",
+      "label": "shuffle workflow",
+      "kind": "ablation",
+      "params": {
+        "chunk": "workflow",
+        "mode": "shuffle"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 5,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.4166666666666667,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.4826621223223023,
+        "ci_high": 0.4826621223223023,
+        "p_value": 1.0,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6384017329808945,
+        "ci_high": 0.6624022285568437,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6384017329808945,
+        "ci_high": 0.6624022285568437,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 3,
+        "false_claims": 0,
+        "claim_rate": 0.25,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 7
+        },
+        "failed": 7,
+        "total": 12,
+        "other_share": 1.0
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 1.0,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": 0.0,
+      "ci_points": [
+        -63.8,
+        66.2
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5471.6,
+        "calls_per_run": 4.67,
+        "steps_per_run": 3.67,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 13131.8,
+        "cost_ratio": 0.93,
+        "cost_risk": false,
+        "mean_duration_s": 15.46
+      }
+    },
+    {
+      "id": "ablation:remove:verification",
+      "label": "remove verification",
+      "kind": "ablation",
+      "params": {
+        "chunk": "verification",
+        "mode": "remove"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 4,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.3333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333337,
+        "ci_low": -0.5384611751648707,
+        "ci_high": 0.4241034978538314,
+        "p_value": 0.9999999999999999,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6900619697331675,
+        "ci_high": 0.6196307266948369,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6900619697331675,
+        "ci_high": 0.6196307266948369,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 2,
+        "false_claims": 0,
+        "claim_rate": 0.16666666666666666,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 1,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 7
+        },
+        "failed": 8,
+        "total": 12,
+        "other_share": 0.875
+      },
+      "per_task": {
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 0.9999999999999999,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -8.3,
+      "ci_points": [
+        -69.0,
+        62.0
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5127.8,
+        "calls_per_run": 4.58,
+        "steps_per_run": 3.33,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 15383.5,
+        "cost_ratio": 1.08,
+        "cost_risk": false,
+        "mean_duration_s": 15.99
+      }
+    },
+    {
+      "id": "ablation:shuffle:verification",
+      "label": "shuffle verification",
+      "kind": "ablation",
+      "params": {
+        "chunk": "verification",
+        "mode": "shuffle"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 5,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.4166666666666667,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.4826621223223023,
+        "ci_high": 0.4826621223223023,
+        "p_value": 1.0,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6384017329808945,
+        "ci_high": 0.6624022285568437,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6384017329808945,
+        "ci_high": 0.6624022285568437,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 4,
+        "false_claims": 0,
+        "claim_rate": 0.3333333333333333,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 7
+        },
+        "failed": 7,
+        "total": 12,
+        "other_share": 1.0
+      },
+      "per_task": {
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 1.0,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": 0.0,
+      "ci_points": [
+        -63.8,
+        66.2
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 6146.6,
+        "calls_per_run": 5.0,
+        "steps_per_run": 4.0,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 14751.8,
+        "cost_ratio": 1.04,
+        "cost_risk": false,
+        "mean_duration_s": 17.65
+      }
+    },
+    {
+      "id": "ablation:remove:tool_read_file",
+      "label": "remove tool_read_file",
+      "kind": "ablation",
+      "params": {
+        "chunk": "tool_read_file",
+        "mode": "remove"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 4,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.3333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333337,
+        "ci_low": -0.5384611751648707,
+        "ci_high": 0.4241034978538314,
+        "p_value": 0.9999999999999999,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6842405015456597,
+        "ci_high": 0.5658082673554312,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6842405015456597,
+        "ci_high": 0.5658082673554312,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 2,
+        "false_claims": 0,
+        "claim_rate": 0.16666666666666666,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 8
+        },
+        "failed": 8,
+        "total": 12,
+        "other_share": 1.0
+      },
+      "per_task": {
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 3,
+          "rate": 1.0,
+          "wilson": [
+            0.43850296824495455,
+            1.0
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 0.9999999999999999,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -8.3,
+      "ci_points": [
+        -68.4,
+        56.6
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5812.9,
+        "calls_per_run": 4.75,
+        "steps_per_run": 3.75,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 17438.75,
+        "cost_ratio": 1.23,
+        "cost_risk": false,
+        "mean_duration_s": 19.38
+      }
+    },
+    {
+      "id": "ablation:shuffle:tool_read_file",
+      "label": "shuffle tool_read_file",
+      "kind": "ablation",
+      "params": {
+        "chunk": "tool_read_file",
+        "mode": "shuffle"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 5,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.4166666666666667,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.4826621223223023,
+        "ci_high": 0.4826621223223023,
+        "p_value": 1.0,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6384017329808945,
+        "ci_high": 0.6624022285568437,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6384017329808945,
+        "ci_high": 0.6624022285568437,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 4,
+        "false_claims": 0,
+        "claim_rate": 0.3333333333333333,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 7
+        },
+        "failed": 7,
+        "total": 12,
+        "other_share": 1.0
+      },
+      "per_task": {
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 1.0,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": 0.0,
+      "ci_points": [
+        -63.8,
+        66.2
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5005.1,
+        "calls_per_run": 4.42,
+        "steps_per_run": 3.42,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 12012.2,
+        "cost_ratio": 0.85,
+        "cost_risk": false,
+        "mean_duration_s": 14.03
+      }
+    },
+    {
+      "id": "ablation:remove:tool_write_file",
+      "label": "remove tool_write_file",
+      "kind": "ablation",
+      "params": {
+        "chunk": "tool_write_file",
+        "mode": "remove"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 5,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.4166666666666667,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.4826621223223023,
+        "ci_high": 0.4826621223223023,
+        "p_value": 1.0,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6247872320972871,
+        "ci_high": 0.6247872320972871,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6247872320972871,
+        "ci_high": 0.6247872320972871,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 3,
+        "false_claims": 0,
+        "claim_rate": 0.25,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 7
+        },
+        "failed": 7,
+        "total": 12,
+        "other_share": 1.0
+      },
+      "per_task": {
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 1.0,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": 0.0,
+      "ci_points": [
+        -62.5,
+        62.5
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 4766.9,
+        "calls_per_run": 4.33,
+        "steps_per_run": 3.33,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 11440.6,
+        "cost_ratio": 0.81,
+        "cost_risk": false,
+        "mean_duration_s": 13.32
+      }
+    },
+    {
+      "id": "ablation:shuffle:tool_write_file",
+      "label": "shuffle tool_write_file",
+      "kind": "ablation",
+      "params": {
+        "chunk": "tool_write_file",
+        "mode": "shuffle"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 3,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.25,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 3,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.25,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.16666666666666669,
+        "ci_low": -0.5949116743172544,
+        "ci_high": 0.3616196564146669,
+        "p_value": 0.6668461434917217,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 3,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.25,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.16666666666666666,
+        "ci_low": -0.7331901849352181,
+        "ci_high": 0.5832004851712663,
+        "p_value": 0.6726038174415166,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.4225771273642583
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 3,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.25,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.16666666666666666,
+        "ci_low": -0.7331901849352181,
+        "ci_high": 0.5832004851712663,
+        "p_value": 0.6726038174415166,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.4225771273642583
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 3,
+        "false_claims": 0,
+        "claim_rate": 0.25,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 9
+        },
+        "failed": 9,
+        "total": 12,
+        "other_share": 1.0
+      },
+      "per_task": {
+        "bugfix_01": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 0.6726038174415166,
+      "p_raw_pooled": 0.6668461434917217,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -16.7,
+      "ci_points": [
+        -73.3,
+        58.3
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 6169.2,
+        "calls_per_run": 5.0,
+        "steps_per_run": 4.0,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 24676.67,
+        "cost_ratio": 1.74,
+        "cost_risk": false,
+        "mean_duration_s": 18.5
+      }
+    },
+    {
+      "id": "ablation:remove:tool_run_tests",
+      "label": "remove tool_run_tests",
+      "kind": "ablation",
+      "params": {
+        "chunk": "tool_run_tests",
+        "mode": "remove"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 3,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.25,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 3,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.25,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.16666666666666669,
+        "ci_low": -0.5949116743172544,
+        "ci_high": 0.3616196564146669,
+        "p_value": 0.6668461434917217,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 3,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.25,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.16666666666666666,
+        "ci_low": -0.7331901849352181,
+        "ci_high": 0.5832004851712663,
+        "p_value": 0.6726038174415166,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.4225771273642583
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 3,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.25,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.16666666666666666,
+        "ci_low": -0.7331901849352181,
+        "ci_high": 0.5832004851712663,
+        "p_value": 0.6726038174415166,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.4225771273642583
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 3,
+        "false_claims": 1,
+        "claim_rate": 0.25,
+        "false_claim_rate": 0.08333333333333333,
+        "false_claim_share_of_failures": 0.1111111111111111
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 1,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 8
+        },
+        "failed": 9,
+        "total": 12,
+        "other_share": 0.8888888888888888
+      },
+      "per_task": {
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 0.6726038174415166,
+      "p_raw_pooled": 0.6668461434917217,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -16.7,
+      "ci_points": [
+        -73.3,
+        58.3
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5400.8,
+        "calls_per_run": 4.75,
+        "steps_per_run": 3.75,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 21603.33,
+        "cost_ratio": 1.52,
+        "cost_risk": false,
+        "mean_duration_s": 16.04
+      }
+    },
+    {
+      "id": "ablation:shuffle:tool_run_tests",
+      "label": "shuffle tool_run_tests",
+      "kind": "ablation",
+      "params": {
+        "chunk": "tool_run_tests",
+        "mode": "shuffle"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 4,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.3333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333337,
+        "ci_low": -0.5384611751648707,
+        "ci_high": 0.4241034978538314,
+        "p_value": 0.9999999999999999,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.7023702923135988,
+        "ci_high": 0.627375442431623,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.7023702923135988,
+        "ci_high": 0.627375442431623,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 5,
+        "false_claims": 1,
+        "claim_rate": 0.4166666666666667,
+        "false_claim_rate": 0.08333333333333333,
+        "false_claim_share_of_failures": 0.125
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 1,
+          "false-success": 1,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 6
+        },
+        "failed": 8,
+        "total": 12,
+        "other_share": 0.75
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 0.9999999999999999,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -8.3,
+      "ci_points": [
+        -70.2,
+        62.7
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 6540.6,
+        "calls_per_run": 5.0,
+        "steps_per_run": 4.0,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 19621.75,
+        "cost_ratio": 1.38,
+        "cost_risk": false,
+        "mean_duration_s": 14.2
+      }
+    },
+    {
+      "id": "ablation:remove:tool_list_dir",
+      "label": "remove tool_list_dir",
+      "kind": "ablation",
+      "params": {
+        "chunk": "tool_list_dir",
+        "mode": "remove"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 4,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.3333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333337,
+        "ci_low": -0.5384611751648707,
+        "ci_high": 0.4241034978538314,
+        "p_value": 0.9999999999999999,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6938865877226906,
+        "ci_high": 0.6188917378407148,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6938865877226906,
+        "ci_high": 0.6188917378407148,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 4,
+        "false_claims": 1,
+        "claim_rate": 0.3333333333333333,
+        "false_claim_rate": 0.08333333333333333,
+        "false_claim_share_of_failures": 0.125
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 1,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 1,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 6
+        },
+        "failed": 8,
+        "total": 12,
+        "other_share": 0.75
+      },
+      "per_task": {
+        "bugfix_01": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 0.9999999999999999,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": -8.3,
+      "ci_points": [
+        -69.4,
+        61.9
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5025.4,
+        "calls_per_run": 4.42,
+        "steps_per_run": 3.5,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 15076.25,
+        "cost_ratio": 1.06,
+        "cost_risk": false,
+        "mean_duration_s": 15.3
+      }
+    },
+    {
+      "id": "ablation:shuffle:tool_list_dir",
+      "label": "shuffle tool_list_dir",
+      "kind": "ablation",
+      "params": {
+        "chunk": "tool_list_dir",
+        "mode": "shuffle"
+      },
+      "p_adjustment_family": "ablation",
+      "family_size": 14,
+      "family_alpha": 0.0035714285714285718,
+      "cell_analysis_alpha": 0.0011904761904761906,
+      "n": 12,
+      "k": 5,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.4166666666666667,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.4826621223223023,
+        "ci_high": 0.4826621223223023,
+        "p_value": 1.0,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.650450619316456,
+        "ci_high": 0.6458870124728108,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.650450619316456,
+        "ci_high": 0.6458870124728108,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "mde": 0.5822944407380932,
+      "claims": {
+        "n": 12,
+        "claims": 5,
+        "false_claims": 0,
+        "claim_rate": 0.4166666666666667,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 1,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 6
+        },
+        "failed": 7,
+        "total": 12,
+        "other_share": 0.8571428571428571
+      },
+      "per_task": {
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 1.0,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 58 pts",
+      "mde_points": 58.2,
+      "delta_points": 0.0,
+      "ci_points": [
+        -65.0,
+        64.6
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5456.5,
+        "calls_per_run": 4.67,
+        "steps_per_run": 3.75,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 13095.6,
+        "cost_ratio": 0.92,
+        "cost_risk": false,
+        "mean_duration_s": 16.52
+      }
+    },
+    {
+      "id": "chaos:truncate_output:run_tests:keep_chars=200",
+      "label": "truncate_output → run_tests",
+      "kind": "chaos",
+      "params": {
+        "fault": "truncate_output",
+        "tool": "run_tests",
+        "keep_chars": 200
+      },
+      "p_adjustment_family": "chaos",
+      "family_size": 6,
+      "family_alpha": 0.008333333333333333,
+      "cell_analysis_alpha": 0.002777777777777778,
+      "n": 12,
+      "k": 5,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.4166666666666667,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.4612068187141744,
+        "ci_high": 0.4612068187141744,
+        "p_value": 1.0,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6228737519122052,
+        "ci_high": 0.6471344911396913,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6228737519122052,
+        "ci_high": 0.6471344911396913,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "mde": 0.5651635472980925,
+      "claims": {
+        "n": 12,
+        "claims": 6,
+        "false_claims": 1,
+        "claim_rate": 0.5,
+        "false_claim_rate": 0.08333333333333333,
+        "false_claim_share_of_failures": 0.14285714285714285
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 1,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 6
+        },
+        "failed": 7,
+        "total": 12,
+        "other_share": 0.8571428571428571
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 1.0,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 57 pts",
+      "mde_points": 56.5,
+      "delta_points": 0.0,
+      "ci_points": [
+        -62.3,
+        64.7
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 6379.6,
+        "calls_per_run": 5.5,
+        "steps_per_run": 4.5,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 15311.0,
+        "cost_ratio": 1.08,
+        "cost_risk": false,
+        "mean_duration_s": 17.92
+      }
+    },
+    {
+      "id": "chaos:empty_result:read_file",
+      "label": "empty_result → read_file",
+      "kind": "chaos",
+      "params": {
+        "fault": "empty_result",
+        "tool": "read_file"
+      },
+      "p_adjustment_family": "chaos",
+      "family_size": 6,
+      "family_alpha": 0.008333333333333333,
+      "cell_analysis_alpha": 0.002777777777777778,
+      "n": 12,
+      "k": 0,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.0,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 0,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.0,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.4166666666666667,
+        "ci_low": -0.7764366918457297,
+        "ci_high": 0.0988294532236505,
+        "p_value": 0.037267080745341616,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 0,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.0,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.4166666666666667,
+        "ci_low": -0.8926546890346451,
+        "ci_high": 0.4374341680397758,
+        "p_value": 0.050961936967763306,
+        "method": "cochran_mantel_haenszel",
+        "z": -1.9518001458970664
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 0,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.0,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.4166666666666667,
+        "ci_low": -0.8926546890346451,
+        "ci_high": 0.4374341680397758,
+        "p_value": 0.050961936967763306,
+        "method": "cochran_mantel_haenszel",
+        "z": -1.9518001458970664
+      },
+      "mde": 0.5651635472980925,
+      "claims": {
+        "n": 12,
+        "claims": 5,
+        "false_claims": 5,
+        "claim_rate": 0.4166666666666667,
+        "false_claim_rate": 0.4166666666666667,
+        "false_claim_share_of_failures": 0.4166666666666667
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 5,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 7
+        },
+        "failed": 12,
+        "total": 12,
+        "other_share": 0.5833333333333334
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 0.050961936967763306,
+      "p_raw_pooled": 0.037267080745341616,
+      "p_adjusted": 0.30577162180657985,
+      "significant_raw": false,
+      "significant_raw_pooled": true,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 57 pts",
+      "mde_points": 56.5,
+      "delta_points": -41.7,
+      "ci_points": [
+        -89.3,
+        43.7
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 3082.5,
+        "calls_per_run": 3.33,
+        "steps_per_run": 2.33,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": null,
+        "cost_ratio": null,
+        "cost_risk": false,
+        "mean_duration_s": 3.51
+      }
+    },
+    {
+      "id": "chaos:malformed_json:run_tests",
+      "label": "malformed_json → run_tests",
+      "kind": "chaos",
+      "params": {
+        "fault": "malformed_json",
+        "tool": "run_tests"
+      },
+      "p_adjustment_family": "chaos",
+      "family_size": 6,
+      "family_alpha": 0.008333333333333333,
+      "cell_analysis_alpha": 0.002777777777777778,
+      "n": 12,
+      "k": 4,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.3333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333337,
+        "ci_low": -0.5186148733458968,
+        "ci_high": 0.3997405205437759,
+        "p_value": 0.9999999999999999,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6749545476242701,
+        "ci_high": 0.6013453197138349,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.6749545476242701,
+        "ci_high": 0.6013453197138349,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "mde": 0.5651635472980925,
+      "claims": {
+        "n": 12,
+        "claims": 6,
+        "false_claims": 3,
+        "claim_rate": 0.5,
+        "false_claim_rate": 0.25,
+        "false_claim_share_of_failures": 0.375
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 3,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 5
+        },
+        "failed": 8,
+        "total": 12,
+        "other_share": 0.625
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 0.9999999999999999,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 57 pts",
+      "mde_points": 56.5,
+      "delta_points": -8.3,
+      "ci_points": [
+        -67.5,
+        60.1
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5077.6,
+        "calls_per_run": 4.58,
+        "steps_per_run": 3.58,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 15232.75,
+        "cost_ratio": 1.07,
+        "cost_risk": false,
+        "mean_duration_s": 14.31
+      }
+    },
+    {
+      "id": "chaos:error_once:write_file",
+      "label": "error_once → write_file",
+      "kind": "chaos",
+      "params": {
+        "fault": "error_once",
+        "tool": "write_file"
+      },
+      "p_adjustment_family": "chaos",
+      "family_size": 6,
+      "family_alpha": 0.008333333333333333,
+      "cell_analysis_alpha": 0.002777777777777778,
+      "n": 12,
+      "k": 4,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.3333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333337,
+        "ci_low": -0.5186148733458968,
+        "ci_high": 0.3997405205437759,
+        "p_value": 0.9999999999999999,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.7050263780563736,
+        "ci_high": 0.6314171501459384,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 4,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.3333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.08333333333333333,
+        "ci_low": -0.7050263780563736,
+        "ci_high": 0.6314171501459384,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": -0.0
+      },
+      "mde": 0.5651635472980925,
+      "claims": {
+        "n": 12,
+        "claims": 2,
+        "false_claims": 1,
+        "claim_rate": 0.16666666666666666,
+        "false_claim_rate": 0.08333333333333333,
+        "false_claim_share_of_failures": 0.125
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 1,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 7
+        },
+        "failed": 8,
+        "total": 12,
+        "other_share": 0.875
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 3,
+          "rate": 1.0,
+          "wilson": [
+            0.43850296824495455,
+            1.0
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 0.9999999999999999,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 57 pts",
+      "mde_points": 56.5,
+      "delta_points": -8.3,
+      "ci_points": [
+        -70.5,
+        63.1
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5351.7,
+        "calls_per_run": 4.58,
+        "steps_per_run": 3.58,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 16055.0,
+        "cost_ratio": 1.13,
+        "cost_risk": false,
+        "mean_duration_s": 15.94
+      }
+    },
+    {
+      "id": "chaos:stale_file:read_file",
+      "label": "stale_file → read_file",
+      "kind": "chaos",
+      "params": {
+        "fault": "stale_file",
+        "tool": "read_file"
+      },
+      "p_adjustment_family": "chaos",
+      "family_size": 6,
+      "family_alpha": 0.008333333333333333,
+      "cell_analysis_alpha": 0.002777777777777778,
+      "n": 12,
+      "k": 5,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.4166666666666667,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.4612068187141744,
+        "ci_high": 0.4612068187141744,
+        "p_value": 1.0,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6586958741530496,
+        "ci_high": 0.6586958741530496,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 5,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.4166666666666667,
+        "p_ctrl": 0.4166666666666667,
+        "delta": 0.0,
+        "ci_low": -0.6586958741530496,
+        "ci_high": 0.6586958741530496,
+        "p_value": 1.0,
+        "method": "cochran_mantel_haenszel",
+        "z": 0.0
+      },
+      "mde": 0.5651635472980925,
+      "claims": {
+        "n": 12,
+        "claims": 4,
+        "false_claims": 0,
+        "claim_rate": 0.3333333333333333,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 0,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 7
+        },
+        "failed": 7,
+        "total": 12,
+        "other_share": 1.0
+      },
+      "per_task": {
+        "bugfix_03": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_02": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 2,
+          "rate": 0.6666666666666666,
+          "wilson": [
+            0.20765960080204765,
+            0.9385080552796037
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 1.0,
+      "p_raw_pooled": 1.0,
+      "p_adjusted": 1.0,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 57 pts",
+      "mde_points": 56.5,
+      "delta_points": 0.0,
+      "ci_points": [
+        -65.9,
+        65.9
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 5387.4,
+        "calls_per_run": 4.5,
+        "steps_per_run": 3.5,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 12929.8,
+        "cost_ratio": 0.91,
+        "cost_risk": false,
+        "mean_duration_s": 14.59
+      }
+    },
+    {
+      "id": "chaos:renamed_path:read_file",
+      "label": "renamed_path → read_file",
+      "kind": "chaos",
+      "params": {
+        "fault": "renamed_path",
+        "tool": "read_file"
+      },
+      "p_adjustment_family": "chaos",
+      "family_size": 6,
+      "family_alpha": 0.008333333333333333,
+      "cell_analysis_alpha": 0.002777777777777778,
+      "n": 12,
+      "k": 1,
+      "invalid_runs": 0,
+      "tamper_detected": 0,
+      "rate": 0.08333333333333333,
+      "exposure": {
+        "tracked_runs": 0,
+        "exposure_rate": null,
+        "n": 0,
+        "k": 0,
+        "rate": null,
+        "comparison": null
+      },
+      "comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.33333333333333337,
+        "ci_low": -0.7009621461713547,
+        "ci_high": 0.1858273163466564,
+        "p_value": 0.15495259888852567,
+        "method": "fisher_exact",
+        "z": null
+      },
+      "stratified_comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.3333333333333333,
+        "ci_low": -0.8286177859935931,
+        "ci_high": 0.47606462005672356,
+        "p_value": 0.17090352023079752,
+        "method": "cochran_mantel_haenszel",
+        "z": -1.3693063937629153
+      },
+      "label_driven_by": "stratified",
+      "label_comparison": {
+        "k_treat": 1,
+        "n_treat": 12,
+        "k_ctrl": 5,
+        "n_ctrl": 12,
+        "p_treat": 0.08333333333333333,
+        "p_ctrl": 0.4166666666666667,
+        "delta": -0.3333333333333333,
+        "ci_low": -0.8286177859935931,
+        "ci_high": 0.47606462005672356,
+        "p_value": 0.17090352023079752,
+        "method": "cochran_mantel_haenszel",
+        "z": -1.3693063937629153
+      },
+      "mde": 0.5651635472980925,
+      "claims": {
+        "n": 12,
+        "claims": 1,
+        "false_claims": 0,
+        "claim_rate": 0.08333333333333333,
+        "false_claim_rate": 0.0,
+        "false_claim_share_of_failures": 0.0
+      },
+      "taxonomy": {
+        "counts": {
+          "loop": 0,
+          "call-cap-hit": 0,
+          "malformed-tool-call": 0,
+          "gave-up": 1,
+          "false-success": 0,
+          "timeout": 0,
+          "tampering": 0,
+          "invalid": 0,
+          "other": 10
+        },
+        "failed": 11,
+        "total": 12,
+        "other_share": 0.9090909090909091
+      },
+      "per_task": {
+        "bugfix_02": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_01": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        },
+        "bugfix_04": {
+          "n": 3,
+          "k": 1,
+          "rate": 0.3333333333333333,
+          "wilson": [
+            0.06149194472039615,
+            0.7923403991979523
+          ]
+        },
+        "bugfix_03": {
+          "n": 3,
+          "k": 0,
+          "rate": 0.0,
+          "wilson": [
+            0.0,
+            0.5614970317550455
+          ]
+        }
+      },
+      "assigned_per_task": {
+        "bugfix_01": 3,
+        "bugfix_02": 3,
+        "bugfix_03": 3,
+        "bugfix_04": 3
+      },
+      "p_raw": 0.17090352023079752,
+      "p_raw_pooled": 0.15495259888852567,
+      "p_adjusted": 0.8545176011539877,
+      "significant_raw": false,
+      "significant_raw_pooled": false,
+      "significant": false,
+      "verdict": "inconclusive",
+      "reason": "not significant; MDE 57 pts",
+      "mde_points": 56.5,
+      "delta_points": -33.3,
+      "ci_points": [
+        -82.9,
+        47.6
+      ],
+      "cost": {
+        "n": 12,
+        "tokens_per_run": 7766.0,
+        "calls_per_run": 6.5,
+        "steps_per_run": 5.5,
+        "usd_per_run": 0.0,
+        "usd_total": 0.0,
+        "cost_units": "tokens",
+        "cost_per_success": 93192.0,
+        "cost_ratio": 6.57,
+        "cost_risk": false,
+        "mean_duration_s": 11.37
+      }
+    }
+  ],
+  "divergence": {
+    "per_task": {},
+    "pooled": {
+      "pass_n": 5,
+      "fail_n": 7,
+      "pass_rate": 0.4166666666666667,
+      "timeline": [
+        {
+          "step": 0,
+          "tv": 0.0,
+          "pass_n": 5,
+          "fail_n": 7,
+          "pass_top": "list_dir:.",
+          "fail_top": "list_dir:.",
+          "pass_dist": {
+            "list_dir:.": 5
+          },
+          "fail_dist": {
+            "list_dir:.": 7
+          }
+        },
+        {
+          "step": 1,
+          "tv": 0.514,
+          "pass_n": 5,
+          "fail_n": 7,
+          "pass_top": "read_file:slugify.py",
+          "fail_top": "read_file:cart.py",
+          "pass_dist": {
+            "read_file:slugify.py": 2,
+            "read_file:tests/test_calc.py": 1,
+            "read_file:calc.py": 1,
+            "read_file:chunker.py": 1
+          },
+          "fail_dist": {
+            "read_file:cart.py": 3,
+            "read_file:chunker.py": 2,
+            "read_file:calc.py": 1,
+            "read_file:slugify.py": 1
+          }
+        },
+        {
+          "step": 2,
+          "tv": 0.667,
+          "pass_n": 5,
+          "fail_n": 3,
+          "pass_top": "run_tests:-",
+          "fail_top": "write_file:cart.py",
+          "pass_dist": {
+            "run_tests:-": 3,
+            "read_file:calc.py": 1,
+            "write_file:slugify.py": 1
+          },
+          "fail_dist": {
+            "write_file:cart.py": 1,
+            "write_file:chunker.py": 1,
+            "run_tests:-": 1
+          }
+        },
+        {
+          "step": 3,
+          "tv": 0.4,
+          "pass_n": 5,
+          "fail_n": 2,
+          "pass_top": "run_tests:-",
+          "fail_top": "run_tests:-",
+          "pass_dist": {
+            "run_tests:-": 3,
+            "write_file:slugify.py": 1,
+            "write_file:chunker.py": 1
+          },
+          "fail_dist": {
+            "run_tests:-": 2
+          }
+        }
+      ],
+      "divergence_step": 1,
+      "divergence": {
+        "step": 1,
+        "tv": 0.514,
+        "pass_n": 5,
+        "fail_n": 7,
+        "pass_top": "read_file:slugify.py",
+        "fail_top": "read_file:cart.py",
+        "pass_dist": {
+          "read_file:slugify.py": 2,
+          "read_file:tests/test_calc.py": 1,
+          "read_file:calc.py": 1,
+          "read_file:chunker.py": 1
+        },
+        "fail_dist": {
+          "read_file:cart.py": 3,
+          "read_file:chunker.py": 2,
+          "read_file:calc.py": 1,
+          "read_file:slugify.py": 1
+        }
+      },
+      "mean_steps_pass": 5.0,
+      "mean_steps_fail": 3.0,
+      "exploratory": true,
+      "exploratory_permutation_p": 0.598,
+      "permutation_statistic": "maximum total-variation distance across eligible steps"
+    },
+    "headline": {
+      "pass_n": 5,
+      "fail_n": 7,
+      "pass_rate": 0.4166666666666667,
+      "timeline": [
+        {
+          "step": 0,
+          "tv": 0.0,
+          "pass_n": 5,
+          "fail_n": 7,
+          "pass_top": "list_dir:.",
+          "fail_top": "list_dir:.",
+          "pass_dist": {
+            "list_dir:.": 5
+          },
+          "fail_dist": {
+            "list_dir:.": 7
+          }
+        },
+        {
+          "step": 1,
+          "tv": 0.514,
+          "pass_n": 5,
+          "fail_n": 7,
+          "pass_top": "read_file:slugify.py",
+          "fail_top": "read_file:cart.py",
+          "pass_dist": {
+            "read_file:slugify.py": 2,
+            "read_file:tests/test_calc.py": 1,
+            "read_file:calc.py": 1,
+            "read_file:chunker.py": 1
+          },
+          "fail_dist": {
+            "read_file:cart.py": 3,
+            "read_file:chunker.py": 2,
+            "read_file:calc.py": 1,
+            "read_file:slugify.py": 1
+          }
+        },
+        {
+          "step": 2,
+          "tv": 0.667,
+          "pass_n": 5,
+          "fail_n": 3,
+          "pass_top": "run_tests:-",
+          "fail_top": "write_file:cart.py",
+          "pass_dist": {
+            "run_tests:-": 3,
+            "read_file:calc.py": 1,
+            "write_file:slugify.py": 1
+          },
+          "fail_dist": {
+            "write_file:cart.py": 1,
+            "write_file:chunker.py": 1,
+            "run_tests:-": 1
+          }
+        },
+        {
+          "step": 3,
+          "tv": 0.4,
+          "pass_n": 5,
+          "fail_n": 2,
+          "pass_top": "run_tests:-",
+          "fail_top": "run_tests:-",
+          "pass_dist": {
+            "run_tests:-": 3,
+            "write_file:slugify.py": 1,
+            "write_file:chunker.py": 1
+          },
+          "fail_dist": {
+            "run_tests:-": 2
+          }
+        }
+      ],
+      "divergence_step": 1,
+      "divergence": {
+        "step": 1,
+        "tv": 0.514,
+        "pass_n": 5,
+        "fail_n": 7,
+        "pass_top": "read_file:slugify.py",
+        "fail_top": "read_file:cart.py",
+        "pass_dist": {
+          "read_file:slugify.py": 2,
+          "read_file:tests/test_calc.py": 1,
+          "read_file:calc.py": 1,
+          "read_file:chunker.py": 1
+        },
+        "fail_dist": {
+          "read_file:cart.py": 3,
+          "read_file:chunker.py": 2,
+          "read_file:calc.py": 1,
+          "read_file:slugify.py": 1
+        }
+      },
+      "mean_steps_pass": 5.0,
+      "mean_steps_fail": 3.0,
+      "exploratory": true,
+      "exploratory_permutation_p": 0.598,
+      "permutation_statistic": "maximum total-variation distance across eligible steps"
+    },
+    "threshold": 0.5,
+    "exploratory": true
+  },
+  "fix_first": [],
+  "methods": {
+    "interval": "Wilson score interval (95%)",
+    "test": "two-proportion z-test, Fisher exact when counts are small",
+    "difference_ci": "Newcombe hybrid score interval with Bonferroni adjustment within cell-kind families",
+    "effect_populations": {
+      "comparison": "intent-to-treat: all valid runs assigned to the cell",
+      "exposure": "runs with an observed perturbation diff, compared with baseline"
+    },
+    "label_driven_by": "Cochran-Mantel-Haenszel task-stratified comparison when matched task strata exist; pooled two-proportion result is an explicit fallback otherwise",
+    "family_sizes": {
+      "ablation": 14,
+      "chaos": 6
+    },
+    "family_alpha": {
+      "ablation": 0.0035714285714285718,
+      "chaos": 0.008333333333333333
+    },
+    "per_look_confidence_by_family": {
+      "ablation": 0.9988095238095238,
+      "chaos": 0.9972222222222222
+    },
+    "correction": "Holm-Bonferroni within each cell-kind family",
+    "corrections_applied_by_family": {
+      "ablation": 14,
+      "chaos": 6
+    },
+    "mde_alpha_by_family": {
+      "ablation": 0.0011904761904761906,
+      "chaos": 0.002777777777777778
+    },
+    "sequential_looks": 3,
+    "sequential_spending": "family alpha divided across 3 planned looks",
+    "baseline_mde_alpha": 0.05,
+    "mde_power": 0.8,
+    "meaningful_drop": 0.25,
+    "labels": {
+      "critical": "adjusted p < alpha and a negative delta",
+      "helpful": "adjusted p < alpha and a positive delta",
+      "dead-weight": "not significant and the full CI rules out meaningful effects in either direction",
+      "inconclusive": "not significant and the CI still includes a meaningful effect"
+    },
+    "success_check": "executable command exit code (never an LLM judge)"
+  }
+}
